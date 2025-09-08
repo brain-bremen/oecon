@@ -34,7 +34,6 @@ logger = logging.getLogger(__name__)
 def convert_open_ephys_recording_to_dh5(
     recording: Recording,
     session_name: str,
-    recording_index: int = 0,
     config: OpenEphysToDhConfig | None = None,
 ):
     assert recording.continuous is not None, (
@@ -50,7 +49,7 @@ def convert_open_ephys_recording_to_dh5(
         f"{cont.metadata.source_node_name}:{cont.metadata.source_node_id}"
         for cont in recording.continuous
     ]
-    dh5filename = f"{session_name}_{recording_index}.dh5"
+    dh5filename = f"{session_name}_exp{recording.experiment_index}_rec{recording.recording_index}.dh5"
     logger.info(
         f"Start converting OpenEphys recording from {recording.directory} to {dh5filename}"
     )
@@ -98,7 +97,9 @@ def convert_open_ephys_recording_to_dh5(
             dh5file=dh5file,
         )
 
-    config_filename = Path(f"{session_name}_{recording_index}.config.json")
+    config_filename = Path(
+        f"{session_name}_exp{recording.experiment_index}_rec{recording.recording_index}.config.json"
+    )
     save_config_to_file(config_filename, config)
 
     logger.info(
