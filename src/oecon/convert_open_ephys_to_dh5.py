@@ -49,7 +49,7 @@ def convert_open_ephys_recording_to_dh5(
         f"{cont.metadata.source_node_name}:{cont.metadata.source_node_id}"
         for cont in recording.continuous
     ]
-    dh5filename = f"{session_name}_exp{recording.experiment_index}_rec{recording.recording_index}.dh5"
+    dh5filename = f"{session_name}_exp{recording.experiment_index + 1}_rec{recording.recording_index + 1}.dh5"
     logger.info(
         f"Start converting OpenEphys recording from {recording.directory} to {dh5filename}"
     )
