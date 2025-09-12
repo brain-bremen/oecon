@@ -30,6 +30,7 @@ class TrialStartMessage:
     trial_type_number: int
     time_sequence_index: int
     frame_number: int
+    timestamp_s: float = -1.0
 
 
 @dataclass
@@ -38,6 +39,7 @@ class TrialEndMessage:
     trial_type_number: int
     frame_number: int
     outcome: TrialOutcome
+    timestamp_s: float = -1.0
 
 
 def parse_trial_start_message(message_string: str) -> TrialStartMessage:
@@ -207,46 +209,51 @@ def get_messages_from_recording(recording: Recording) -> Messages:
 
 
 def process_oe_trialmap(config: TrialMapConfig, recording: Recording, dh5file: DH5File):
-    oe_messages = get_messages_from_recording(recording)
+    oe_messages: Messages = get_messages_from_recording(recording)
     logger.info(f"Create trialmap {len(oe_messages.text)} trial messages")
     trial_start_messages: list[TrialStartMessage] = []
-    trial_start_timestamps = []
     trial_end_messages: list[TrialEndMessage] = []
-    trial_end_timestamps = []
     for msg in oe_messages:
         parsed_message = parse_message(msg["text"])
         if isinstance(parsed_message, TrialStartMessage):
+            parsed_message.timestamp_s = msg["timestamp"]
             trial_start_messages.append(parsed_message)
-            trial_start_timestamps.append(msg["timestamp"])
         if isinstance(parsed_message, TrialEndMessage):
+            parsed_message.timestamp_s = msg["timestamp"]
             trial_end_messages.append(parsed_message)
-            trial_end_timestamps.append(msg["timestamp"])
 
     if len(trial_start_messages) != len(trial_end_messages):
         logger.warning(
             f"Number of trial start messages ({len(trial_start_messages)}) does not match number of trial end messages ({len(trial_end_messages)})"
         )
-        # Remove unmatched trial start messages by comparing trial_index
-        for start_msg in trial_start_messages:
-            if start_msg.trial_index not in [
-                end_msg.trial_index for end_msg in trial_end_messages
-            ]:
-                logger.warning(f"Removing unmatched trial start message: {start_msg}")
-                index = trial_start_messages.index(start_msg)
-                trial_start_messages.pop(index)
-                trial_start_timestamps.pop(index)
+        # Remove unmatched trial start/end messages by comparing trial_index
+        unmatched_start_msgs = [
+            start_msg
+            for start_msg in trial_start_messages
+            if start_msg.trial_index
+            not in [end_msg.trial_index for end_msg in trial_end_messages]
+        ]
+        for start_msg in unmatched_start_msgs:
+            logger.warning(f"Removing unmatched trial start message: {start_msg}")
+            trial_start_messages.remove(start_msg)
 
-        # Remove unmatched end messages
-        for end_msg in trial_end_messages:
-            if end_msg.trial_index not in [
-                start_msg.trial_index for start_msg in trial_start_messages
-            ]:
-                logger.warning(f"Removing unmatched trial end message: {end_msg}")
-                index = trial_end_messages.index(end_msg)
-                trial_end_messages.pop(index)
-                trial_end_timestamps.pop(index)
+        unmatched_end_msgs = [
+            end_msg
+            for end_msg in trial_end_messages
+            if end_msg.trial_index
+            not in [start_msg.trial_index for start_msg in trial_start_messages]
+        ]
+        for end_msg in unmatched_end_msgs:
+            logger.warning(f"Removing unmatched trial end message: {end_msg}")
+            trial_end_messages.remove(end_msg)
 
-        assert len(trial_start_timestamps) == len(trial_end_messages)
+        if len(trial_start_messages) != len(trial_end_messages):
+            logger.warning(
+                f"After removal, number of trial start messages ({len(trial_start_messages)}) still does not match number of trial end messages ({len(trial_end_messages)}). Skipping trialmap creation."
+            )
+            return None
+
+        assert len(trial_start_messages) == len(trial_end_messages)
 
     for i, (start_msg, end_msg) in enumerate(
         zip(trial_start_messages, trial_end_messages)
@@ -269,8 +276,12 @@ def process_oe_trialmap(config: TrialMapConfig, recording: Recording, dh5file: D
         new_trialmap[iTrial].TrialNo = msg.trial_index
         new_trialmap[iTrial].StimNo = msg.trial_type_number
         new_trialmap[iTrial].Outcome = trial_end_messages[iTrial].outcome.value
-        new_trialmap[iTrial].StartTime = np.int64(trial_start_timestamps[iTrial] * 1e9)
-        new_trialmap[iTrial].EndTime = np.int64(trial_end_timestamps[iTrial] * 1e9)
+        new_trialmap[iTrial].StartTime = np.int64(
+            trial_start_messages[iTrial].timestamp_s * 1e9
+        )
+        new_trialmap[iTrial].EndTime = np.int64(
+            trial_end_messages[iTrial].timestamp_s * 1e9
+        )
 
     dh5io.trialmap.add_trialmap_to_file(dh5file._file, new_trialmap)
 
