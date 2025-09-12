@@ -6,6 +6,7 @@ from open_ephys.analysis.session import Session
 import tkinter as tk
 from tkinter import filedialog
 import sys
+
 if sys.platform == "win32":
     import winreg
 import logging
@@ -132,9 +133,9 @@ def main():
             convert_open_ephys_recording_to_dh5(
                 recording=recording,
                 session_name=str(output_folder / session_name),
-                recording_index=recording_index,
                 config=config,
             )
+            recording.experiment_index
             recording_index += 1
 
 
