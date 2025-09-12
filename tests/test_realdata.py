@@ -41,7 +41,6 @@ def test_load_data(recording):
     oerec2dh(
         recording,
         session_name,
-        recording_index=0,
     )
 
 
