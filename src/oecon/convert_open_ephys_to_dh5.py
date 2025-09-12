@@ -20,6 +20,7 @@ from oecon.events import process_oe_events
 from oecon.raw import process_oe_raw_data
 from oecon.trialmap import process_oe_trialmap
 from oecon.mua import extract_continuous_mua
+from oecon.version import get_version_from_pyproject
 
 # Configure logging
 logging.basicConfig(
@@ -51,7 +52,7 @@ def convert_open_ephys_recording_to_dh5(
     ]
     dh5filename = f"{session_name}_exp{recording.experiment_index + 1}_rec{recording.recording_index + 1}.dh5"
     logger.info(
-        f"Start converting OpenEphys recording from {recording.directory} to {dh5filename}"
+        f"Start converting OpenEphys recording from {recording.directory} to {dh5filename} using oecon v{get_version_from_pyproject()}"
     )
     dh5file = dh5io.create.create_dh_file(
         dh5filename, overwrite=True, boards=board_names, validate=False
