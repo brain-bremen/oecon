@@ -206,8 +206,12 @@ def event_from_eventfolder(
 def find_ev02_source(oeinfo: dict):
     for event in oeinfo["events"]:
         if (
-            event["source_processor"] == "NI-DAQmx"
-            and event["stream_name"] == "PXIe-6341"
+            (
+                event["source_processor"] == "NI-DAQmx"
+                and event["stream_name"] == "PXIe-6341"
+            )
+            or event["source_processor"] == "Acquisition Board"
+            or event["identifier"] == "acq-board.rhythm.events"
         ):
             return EventMetadata(**event)
     return None
