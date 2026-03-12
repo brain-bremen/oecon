@@ -5,9 +5,9 @@ name: Python Tests
 
 on:
   push:
-    branches: [ "main" ]
+    branches: [ "master" ]
   pull_request:
-    branches: [ "main" ]
+    branches: [ "master" ]
 
 permissions:
   contents: read
@@ -27,7 +27,7 @@ jobs:
     - name: Set up Python
       run: uv python install
     - name: Install the project
-      run: uv sync --extra dev
+      run: uv sync --group dev
     - name: Run tests  
       run: uv run pytest tests
 
