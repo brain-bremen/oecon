@@ -1,0 +1,70 @@
+{
+    "GUI version": "1.0.2",
+    "continuous": [
+      {
+        "folder_name": "NI-DAQmx-110.USB-6343/",
+        "sample_rate": 30000.0,
+        "source_processor_name": "NI-DAQmx",
+        "source_processor_id": 110,
+        "stream_name": "USB-6343",
+        "recorded_processor": "Record Node",
+        "recorded_processor_id": 101,
+        "num_channels": 2,
+        "channels": [
+          {
+            "channel_name": "AI0",
+            "description": "Analog Input channel from a NIDAQ device",
+            "identifier": "identifier",
+            "history": "NI-DAQmx -> Channel Map -> Network Events -> Record Node",
+            "bit_volts": 0.0003051851,
+            "units": "V",
+            "type": 2
+          },
+          {
+            "channel_name": "AI2",
+            "description": "Analog Input channel from a NIDAQ device",
+            "identifier": "identifier",
+            "history": "NI-DAQmx -> Channel Map -> Network Events -> Record Node",
+            "bit_volts": 0.0003051851,
+            "units": "V",
+            "type": 2
+          }
+        ]
+      }
+    ],
+    "events": [
+      {
+        "folder_name": "NI-DAQmx-110.USB-6343/TTL/",
+        "channel_name": "USB-6343Digital Input Line",
+        "description": "Digital Line from a NIDAQ device containing 48 inputs",
+        "identifier": "identifier",
+        "sample_rate": 30000.0,
+        "type": "int16",
+        "source_processor": "NI-DAQmx",
+        "stream_name": "USB-6343",
+        "initial_state": 0
+      },
+      {
+        "folder_name": "Network_Events-109.USB-6343/TTL/",
+        "channel_name": "Network Events output",
+        "description": "Triggers whenever \"TTL\" is received on the port.",
+        "identifier": "external.network.ttl",
+        "sample_rate": 30000.0,
+        "type": "int16",
+        "source_processor": "Network Events",
+        "stream_name": "USB-6343",
+        "initial_state": 0
+      },
+      {
+        "folder_name": "MessageCenter/",
+        "channel_name": "Messages",
+        "description": "Broadcasts messages from the MessageCenter",
+        "identifier": "messagecenter.events",
+        "sample_rate": 30000.0,
+        "type": "string",
+        "source_processor": "Message Center",
+        "stream_name": "USB-6343"
+      }
+    ],
+    "spikes": []
+  }
