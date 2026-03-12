@@ -1,7 +1,9 @@
+import json
 import logging
 import os
-from dataclasses import dataclass, field
 from os import PathLike
+
+from pydantic import BaseModel, Field, model_validator
 
 from oecon.decimation import DecimationConfig
 from oecon.events import EventPreprocessingConfig
@@ -14,13 +16,11 @@ VERSION = 1
 logger = logging.getLogger(__name__)
 
 
-@dataclass
-class SpikeCuttingConfig:
+class SpikeCuttingConfig(BaseModel):
     pass
 
 
-@dataclass
-class OpenEphysToDhConfig:
+class OpenEphysToDhConfig(BaseModel):
     raw_config: RawConfig | None
     decimation_config: DecimationConfig | None
     event_config: EventPreprocessingConfig | None
@@ -28,29 +28,24 @@ class OpenEphysToDhConfig:
     spike_cutting_config: SpikeCuttingConfig | None
     continuous_mua_config: ContinuousMuaConfig | None
     config_version: int = VERSION
-    oecon_version: str = field(
+    oecon_version: str = Field(
         default_factory=lambda: __import__(
             "oecon.version"
-        ).version.get_version_from_pyproject(),
-        init=False,
+        ).version.get_version_from_pyproject()
     )
+
+    @model_validator(mode="after")
+    def set_oecon_version(self) -> "OpenEphysToDhConfig":
+        self.oecon_version = __import__(
+            "oecon.version"
+        ).version.get_version_from_pyproject()
+        return self
 
 
 def save_config_to_file(config_filename: PathLike, config: OpenEphysToDhConfig) -> None:
-    import json
-    from dataclasses import asdict
-    import numpy as np
-
-    class NumpyEncoder(json.JSONEncoder):
-        def default(self, o):
-            if isinstance(o, np.ndarray):
-                return o.tolist()
-            return super().default(o)
-
     logger.info(f"Saving configration to {config_filename}")
-    jsonstringconf = json.dumps(asdict(config), indent=True, cls=NumpyEncoder)
     with open(config_filename, mode="w") as config_file:
-        config_file.write(jsonstringconf)
+        config_file.write(config.model_dump_json(indent=2))
 
 
 def load_config_from_file(config_path: PathLike) -> OpenEphysToDhConfig:
@@ -59,8 +54,6 @@ def load_config_from_file(config_path: PathLike) -> OpenEphysToDhConfig:
 
     logger.info(f"Loading configuration from {config_path}")
     with open(config_path, "r") as f:
-        import json
-
         config_data = json.load(f)
 
     if "config_version" not in config_data:
@@ -74,34 +67,4 @@ def load_config_from_file(config_path: PathLike) -> OpenEphysToDhConfig:
             f"Configuration file version {config_data['config_version']} is newer than supported version {VERSION}."
         )
 
-    raw_config = config_data.get("raw_config", None)
-    if raw_config is not None:
-        raw_config = RawConfig(**raw_config)
-
-    decimation_config = config_data.get("decimation_config", None)
-    if decimation_config is not None:
-        decimation_config = DecimationConfig(**decimation_config)
-    event_config = config_data.get("event_config", None)
-    if event_config is not None:
-        event_config = EventPreprocessingConfig(**event_config)
-    trialmap_config = config_data.get("trialmap_config", None)
-    if trialmap_config is not None:
-        trialmap_config = TrialMapConfig(**trialmap_config)
-    spike_cutting_config = config_data.get("spike_cutting_config", None)
-    if spike_cutting_config is not None:
-        spike_cutting_config = SpikeCuttingConfig(**spike_cutting_config)
-
-    continuous_mua_config = config_data.get("continuous_mua_config", None)
-    if continuous_mua_config is not None:
-        continuous_mua_config = ContinuousMuaConfig(**continuous_mua_config)
-
-    # TODO: properly handle enums in dicts
-
-    return OpenEphysToDhConfig(
-        raw_config=raw_config,
-        decimation_config=decimation_config,
-        event_config=event_config,
-        trialmap_config=trialmap_config,
-        spike_cutting_config=spike_cutting_config,
-        continuous_mua_config=continuous_mua_config,
-    )
+    return OpenEphysToDhConfig.model_validate(config_data)

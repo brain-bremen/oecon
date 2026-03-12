@@ -1,5 +1,5 @@
 import logging
-from dataclasses import dataclass
+from enum import StrEnum
 
 import dh5io
 import dh5io.cont
@@ -9,6 +9,7 @@ import numpy as np
 import scipy.signal as signal
 from dh5io import DH5File
 from open_ephys.analysis.recording import Recording
+from pydantic import BaseModel, field_validator
 
 import oecon.version
 from oecon.scaling import scale_to_16_bit_range
@@ -16,15 +17,26 @@ from oecon.scaling import scale_to_16_bit_range
 logger = logging.getLogger(__name__)
 
 
-@dataclass
-class DecimationConfig:
+class FilterType(StrEnum):
+    FIR = "fir"
+    IIR = "iir"
+
+
+class DecimationConfig(BaseModel):
     downsampling_factor: int = 30
-    ftype: str = "fir"
+    ftype: FilterType = FilterType.FIR
     zero_phase: bool = True
     filter_order: int | None = 600
     included_channel_names: list[str] | None = None  # doall if None
     start_block_id: int = 2001
-    scale_max_abs_to: np.int16 | None = None
+    scale_max_abs_to: int | None = None
+
+    @field_validator("downsampling_factor")
+    @classmethod
+    def factor_must_be_positive(cls, v: int) -> int:
+        if v < 1:
+            raise ValueError("downsampling_factor must be >= 1")
+        return v
 
 
 def decimate_np_array(

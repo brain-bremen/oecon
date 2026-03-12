@@ -1,5 +1,5 @@
-from dataclasses import dataclass, field
 import oecon.default_mappings as default
+from pydantic import BaseModel, Field
 from open_ephys.analysis.recording import Continuous
 from open_ephys.analysis.recording import Recording
 from open_ephys.analysis.recording import ContinuousMetadata
@@ -10,13 +10,12 @@ from dh5io.cont import create_cont_group_from_data_in_file
 import numpy as np
 
 
-@dataclass
-class RawConfig:
+class RawConfig(BaseModel):
     split_channels_into_cont_blocks: bool = True
-    cont_ranges: dict[default.ContGroups, tuple] = field(
+    cont_ranges: dict[default.ContGroups, tuple[int, int]] = Field(
         default_factory=lambda: default.DEFAULT_CONT_GROUP_RANGES.copy()
     )
-    oe_processor_cont_group_map: dict[str, default.ContGroups] = field(
+    oe_processor_cont_group_map: dict[str, default.ContGroups] = Field(
         default_factory=lambda: default.DEFAULT_OE_STREAM_MAPPING.copy()
     )
     included_channel_names: list[str] | None = None  # None for all

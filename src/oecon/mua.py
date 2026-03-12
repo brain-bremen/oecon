@@ -1,5 +1,4 @@
 import logging
-from dataclasses import dataclass
 
 import dh5io
 import dh5io.cont
@@ -10,6 +9,7 @@ import scipy.signal as signal
 from dh5io import DH5File
 from dhspec.cont import create_channel_info, create_empty_index_array
 from open_ephys.analysis.recording import Recording as OERecording
+from pydantic import BaseModel, field_validator
 
 import oecon.default_mappings as default
 from oecon.decimation import DecimationConfig, decimate_np_array
@@ -17,14 +17,19 @@ from oecon.decimation import DecimationConfig, decimate_np_array
 logger = logging.getLogger(__name__)
 
 
-@dataclass
-class FilterConfigBA:
-    b: list[float] | None | npt.NDArray[np.float64]
-    a: list[float] | None | npt.NDArray[np.float64]
+class FilterConfigBA(BaseModel):
+    b: list[float] | None
+    a: list[float] | None
+
+    @field_validator("b", "a", mode="before")
+    @classmethod
+    def coerce_ndarray_to_list(cls, v):
+        if isinstance(v, np.ndarray):
+            return v.tolist()
+        return v
 
 
-@dataclass
-class ContinuousMuaConfig:
+class ContinuousMuaConfig(BaseModel):
     highpass_cutoff_hz: float = 300.0
     filter_coecfficients_b_a: FilterConfigBA | None = None
     included_channel_names: list[str] | None = None  # None for all

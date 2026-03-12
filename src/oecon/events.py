@@ -2,7 +2,8 @@ import logging
 import os
 import pprint
 import warnings
-from dataclasses import dataclass, field
+from dataclasses import dataclass
+from pydantic import BaseModel, Field
 from pathlib import Path
 
 import dh5io
@@ -20,10 +21,9 @@ import oecon.version
 logger = logging.getLogger(__name__)
 
 
-@dataclass
-class EventPreprocessingConfig:
+class EventPreprocessingConfig(BaseModel):
     network_events_offset: int = 1000
-    network_events_code_name_map: dict[str, int] | None = field(
+    network_events_code_name_map: dict[str, int] | None = Field(
         default_factory=lambda: VStimEventCode.asdict()
     )
     ttl_line_names: dict[str, int] | None = None

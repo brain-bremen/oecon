@@ -1,6 +1,7 @@
 import warnings
 from dataclasses import dataclass
 from enum import StrEnum
+from pydantic import BaseModel
 from typing import Callable
 import dhspec
 import dhspec.trialmap
@@ -18,8 +19,7 @@ import logging
 logger = logging.getLogger(__name__)
 
 
-@dataclass
-class TrialMapConfig:
+class TrialMapConfig(BaseModel):
     use_message_center_messages: bool = True
     trial_start_ttl_line: int | None = None
 

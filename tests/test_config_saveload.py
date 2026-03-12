@@ -36,12 +36,11 @@ def test_save_and_load_config_roundtrip():
         config_path = Path(os.path.join(tmpdir, "test_config.json"))
         save_config_to_file(config_path, config)
         loaded_config = load_config_from_file(config_path)
-        # TODO
-        # assert config == loaded_config
-        # assert loaded_config.raw_config == config.raw_config
+        assert config == loaded_config
+        assert loaded_config.raw_config == config.raw_config
         assert loaded_config.decimation_config == config.decimation_config
-        # assert loaded_config.event_config == config.event_config
-        # assert loaded_config.trialmap_config == config.trialmap_config
+        assert loaded_config.event_config == config.event_config
+        assert loaded_config.trialmap_config == config.trialmap_config
 
 
 def test_save_config_creates_file():
