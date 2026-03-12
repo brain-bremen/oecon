@@ -22,11 +22,21 @@ logger = logging.getLogger(__name__)
 
 
 class EventPreprocessingConfig(BaseModel):
-    network_events_offset: int = 1000
-    network_events_code_name_map: dict[str, int] | None = Field(
-        default_factory=lambda: VStimEventCode.asdict()
+    network_events_offset: int = Field(
+        default=1000,
+        title="Network events offset",
+        description="Value added to all VStim network event codes to avoid collisions with TTL line codes",
     )
-    ttl_line_names: dict[str, int] | None = None
+    network_events_code_name_map: dict[str, int] | None = Field(
+        default_factory=lambda: VStimEventCode.asdict(),
+        title="Network event code map",
+        description="Mapping from VStim event name to integer code. Leave empty to use VStim defaults",
+    )
+    ttl_line_names: dict[str, int] | None = Field(
+        default=None,
+        title="TTL line names",
+        description="Custom mapping from TTL line name to event code. Leave empty to use line indices as codes",
+    )
 
 
 @dataclass

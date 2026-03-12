@@ -1,6 +1,7 @@
 import json
 import logging
 import os
+from enum import StrEnum
 from os import PathLike
 
 from pydantic import BaseModel, Field, model_validator
@@ -16,8 +17,13 @@ VERSION = 1
 logger = logging.getLogger(__name__)
 
 
-class SpikeCuttingConfig(BaseModel):
-    pass
+class SpikeConfig(BaseModel):
+    pass  # fields added later
+
+
+class OutputFormat(StrEnum):
+    DH5 = "dh5"
+    NWB = "nwb"
 
 
 class OpenEphysToDhConfig(BaseModel):
@@ -25,8 +31,10 @@ class OpenEphysToDhConfig(BaseModel):
     decimation_config: DecimationConfig | None
     event_config: EventPreprocessingConfig | None
     trialmap_config: TrialMapConfig | None
-    spike_cutting_config: SpikeCuttingConfig | None
     continuous_mua_config: ContinuousMuaConfig | None
+    spike_config: SpikeConfig | None = None
+    output_format: OutputFormat = OutputFormat.DH5
+    n_jobs: int = 1
     config_version: int = VERSION
     oecon_version: str = Field(
         default_factory=lambda: __import__(

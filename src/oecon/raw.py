@@ -11,14 +11,26 @@ import numpy as np
 
 
 class RawConfig(BaseModel):
-    split_channels_into_cont_blocks: bool = True
+    split_channels_into_cont_blocks: bool = Field(
+        default=True,
+        title="Split channels into CONT blocks",
+        description="Store each channel in its own CONT block. Required for most downstream processing",
+    )
     cont_ranges: dict[default.ContGroups, tuple[int, int]] = Field(
-        default_factory=lambda: default.DEFAULT_CONT_GROUP_RANGES.copy()
+        default_factory=lambda: default.DEFAULT_CONT_GROUP_RANGES.copy(),
+        title="CONT block ranges",
+        description="DH5 CONT block ID ranges per channel group",
     )
     oe_processor_cont_group_map: dict[str, default.ContGroups] = Field(
-        default_factory=lambda: default.DEFAULT_OE_STREAM_MAPPING.copy()
+        default_factory=lambda: default.DEFAULT_OE_STREAM_MAPPING.copy(),
+        title="OE stream → CONT group map",
+        description="Mapping from Open Ephys stream name to DH5 CONT group",
     )
-    included_channel_names: list[str] | None = None  # None for all
+    included_channel_names: list[str] | None = Field(
+        default=None,
+        title="Included channels",
+        description="Channel names to process. Leave empty to include all channels",
+    )
 
 
 def _create_cont_group_per_channel(

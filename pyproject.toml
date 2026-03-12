@@ -26,6 +26,7 @@ vstim-python-tools = { git = "https://github.com/brain-bremen/vstim-python-tools
 
 
 [dependency-groups]
+gui = ["pyside6>=6.7"]
 dev = [
     "mypy>=1.16.1",
     "pytest>=8.3.5",
@@ -36,3 +37,4 @@ dev = [
 
 [project.scripts]
 oecon = "cli.main:main"
+oecon-gui = "gui.app:main"

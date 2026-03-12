@@ -9,7 +9,7 @@ import scipy.signal as signal
 from dh5io import DH5File
 from dhspec.cont import create_channel_info, create_empty_index_array
 from open_ephys.analysis.recording import Recording as OERecording
-from pydantic import BaseModel, field_validator
+from pydantic import BaseModel, Field, field_validator
 
 import oecon.default_mappings as default
 from oecon.decimation import DecimationConfig, decimate_np_array
@@ -30,10 +30,26 @@ class FilterConfigBA(BaseModel):
 
 
 class ContinuousMuaConfig(BaseModel):
-    highpass_cutoff_hz: float = 300.0
-    filter_coecfficients_b_a: FilterConfigBA | None = None
-    included_channel_names: list[str] | None = None  # None for all
-    start_block_id: int = default.DEFAULT_CONT_GROUP_RANGES[default.ContGroups.ESA][0]
+    highpass_cutoff_hz: float = Field(
+        default=300.0,
+        title="High-pass cutoff (Hz)",
+        description="Cutoff frequency for the Butterworth high-pass filter applied before rectification",
+    )
+    filter_coecfficients_b_a: FilterConfigBA | None = Field(
+        default=None,
+        title="Filter coefficients (b, a)",
+        description="Pre-computed filter coefficients (b, a). Auto-computed from the cutoff frequency if left empty",
+    )
+    included_channel_names: list[str] | None = Field(
+        default=None,
+        title="Included channels",
+        description="Channel names to process. Leave empty to include all channels",
+    )
+    start_block_id: int = Field(
+        default=default.DEFAULT_CONT_GROUP_RANGES[default.ContGroups.ESA][0],
+        title="Start CONT block ID",
+        description="First DH5 CONT block ID for MUA output (default range: 4001–5000)",
+    )
 
 
 def extract_continuous_mua(

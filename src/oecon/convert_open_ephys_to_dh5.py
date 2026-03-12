@@ -10,7 +10,6 @@ from oecon.config import (
     EventPreprocessingConfig,
     OpenEphysToDhConfig,
     RawConfig,
-    SpikeCuttingConfig,
     TrialMapConfig,
     ContinuousMuaConfig,
     save_config_to_file,
@@ -65,7 +64,6 @@ def convert_open_ephys_recording_to_dh5(
             event_config=EventPreprocessingConfig(network_events_offset=1000),
             trialmap_config=TrialMapConfig(),
             continuous_mua_config=ContinuousMuaConfig(),
-            spike_cutting_config=SpikeCuttingConfig(),
         )
 
     if config.raw_config is not None:
