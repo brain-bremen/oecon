@@ -148,11 +148,12 @@ class SessionInspectorWidget(QGroupBox):
                     for ch_name in _ellipsis_list(stream.channel_names):
                         stream_item.addChild(QTreeWidgetItem([ch_name]))
 
-            if rec.event_stream_names:
-                ev_item = QTreeWidgetItem([f"Events  ({len(rec.event_stream_names)})"])
+            if rec.event_streams:
+                ev_item = QTreeWidgetItem([f"Events  ({len(rec.event_streams)})"])
                 rec_item.addChild(ev_item)
-                for ev_name in rec.event_stream_names:
-                    ev_item.addChild(QTreeWidgetItem([ev_name]))
+                for ev in rec.event_streams:
+                    label = f"{ev.name}  —  {ev.count} events" if ev.count is not None else ev.name
+                    ev_item.addChild(QTreeWidgetItem([label]))
 
         item.setExpanded(True)
         for i in range(item.childCount()):

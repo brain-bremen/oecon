@@ -8,6 +8,8 @@ import os
 from dataclasses import dataclass, field
 from pathlib import Path
 
+import numpy as np
+
 
 @dataclass
 class StreamInfo:
@@ -19,12 +21,18 @@ class StreamInfo:
 
 
 @dataclass
+class EventStreamInfo:
+    name: str
+    count: int | None  # None if timestamps.npy could not be read
+
+
+@dataclass
 class RecordingInfo:
     experiment_index: int  # 0-based
     recording_index: int   # 0-based
     directory: str
     streams: list[StreamInfo] = field(default_factory=list)
-    event_stream_names: list[str] = field(default_factory=list)
+    event_streams: list[EventStreamInfo] = field(default_factory=list)
 
     @property
     def duration_s(self) -> float | None:
@@ -36,8 +44,8 @@ class RecordingInfo:
         return sum(s.num_channels for s in self.streams)
 
     @property
-    def num_event_streams(self) -> int:
-        return len(self.event_stream_names)
+    def event_stream_names(self) -> list[str]:
+        return [e.name for e in self.event_streams]
 
 
 @dataclass
@@ -75,10 +83,18 @@ def _dat_duration(dat_path: str, num_channels: int, sample_rate: float) -> float
         return None
 
 
+def _event_count(rec_dir: str, folder_name: str) -> int | None:
+    ts_path = os.path.join(rec_dir, "events", folder_name, "timestamps.npy")
+    try:
+        return int(np.load(ts_path, mmap_mode="r").shape[0])
+    except Exception:
+        return None
+
+
 def _inspect_recording(rec_dir: str, exp_idx: int, rec_idx: int) -> RecordingInfo:
     oebin_path = os.path.join(rec_dir, "structure.oebin")
     streams: list[StreamInfo] = []
-    event_names: list[str] = []
+    event_streams: list[EventStreamInfo] = []
 
     if os.path.isfile(oebin_path):
         with open(oebin_path) as f:
@@ -91,24 +107,28 @@ def _inspect_recording(rec_dir: str, exp_idx: int, rec_idx: int) -> RecordingInf
             dur = _dat_duration(dat, num_ch, sr) if num_ch and sr else None
             channel_names = [ch["channel_name"] for ch in cont.get("channels", []) if "channel_name" in ch]
             streams.append(StreamInfo(name=name, num_channels=num_ch, sample_rate=sr, duration_s=dur, channel_names=channel_names))
+        seen: set[str] = set()
         for ev in info.get("events", []):
             name = ev.get("source_processor") or ev.get("stream_name", "?")
-            if name not in event_names:
-                event_names.append(name)
+            if name in seen:
+                continue
+            seen.add(name)
+            count = _event_count(rec_dir, ev["folder_name"])
+            event_streams.append(EventStreamInfo(name=name, count=count))
     else:
         for d in sorted(glob.glob(os.path.join(rec_dir, "events", "*"))):
             if os.path.isdir(d):
                 folder = os.path.basename(d)
                 name = ".".join(folder.split(".")[1:]) or folder  # strip node prefix
-                if name not in event_names:
-                    event_names.append(name)
+                count = _event_count(rec_dir, folder)
+                event_streams.append(EventStreamInfo(name=name, count=count))
 
     return RecordingInfo(
         experiment_index=exp_idx,
         recording_index=rec_idx,
         directory=rec_dir,
         streams=streams,
-        event_stream_names=event_names,
+        event_streams=event_streams,
     )
 
 
@@ -217,8 +237,12 @@ def format_session_info(info: SessionInfo) -> str:
             lines.append(f"    Continuous : {',  '.join(stream_parts)}")
         else:
             lines.append("    Continuous : —")
-        if rec.event_stream_names:
-            lines.append(f"    Events     : {',  '.join(rec.event_stream_names)}")
+        if rec.event_streams:
+            ev_parts = [
+                f"{e.name} ({e.count})" if e.count is not None else e.name
+                for e in rec.event_streams
+            ]
+            lines.append(f"    Events     : {',  '.join(ev_parts)}")
         else:
             lines.append("    Events     : —")
 
