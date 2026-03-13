@@ -77,6 +77,8 @@ def _dat_duration(dat_path: str, num_channels: int, sample_rate: float) -> float
 def _inspect_recording(rec_dir: str, exp_idx: int, rec_idx: int) -> RecordingInfo:
     oebin_path = os.path.join(rec_dir, "structure.oebin")
     streams: list[StreamInfo] = []
+    event_names: list[str] = []
+
     if os.path.isfile(oebin_path):
         with open(oebin_path) as f:
             info = json.load(f)
@@ -87,14 +89,17 @@ def _inspect_recording(rec_dir: str, exp_idx: int, rec_idx: int) -> RecordingInf
             dat = os.path.join(rec_dir, "continuous", cont["folder_name"], "continuous.dat")
             dur = _dat_duration(dat, num_ch, sr) if num_ch and sr else None
             streams.append(StreamInfo(name=name, num_channels=num_ch, sample_rate=sr, duration_s=dur))
-
-    # Event streams: enumerate events/*/TTL* directories
-    event_names: list[str] = []
-    for d in sorted(glob.glob(os.path.join(rec_dir, "events", "*", "TTL*"))):
-        parent = os.path.basename(os.path.dirname(d))
-        stream = ".".join(parent.split(".")[1:]) or parent  # strip node prefix
-        if stream not in event_names:
-            event_names.append(stream)
+        for ev in info.get("events", []):
+            name = ev.get("source_processor") or ev.get("stream_name", "?")
+            if name not in event_names:
+                event_names.append(name)
+    else:
+        for d in sorted(glob.glob(os.path.join(rec_dir, "events", "*"))):
+            if os.path.isdir(d):
+                folder = os.path.basename(d)
+                name = ".".join(folder.split(".")[1:]) or folder  # strip node prefix
+                if name not in event_names:
+                    event_names.append(name)
 
     return RecordingInfo(
         experiment_index=exp_idx,
@@ -119,6 +124,36 @@ def _find_recordings(node_dir: str) -> list[tuple[int, int, str]]:
 # ---------------------------------------------------------------------------
 # Public API
 # ---------------------------------------------------------------------------
+
+def validate_session_path(session_path: Path) -> None:
+    """Raise ValueError if *session_path* does not look like an Open Ephys session.
+
+    Accepts either a full session folder (contains settings.xml) or a single
+    experiment folder (contains recording* subdirectories).
+    """
+    if not session_path.exists():
+        raise ValueError(f"Path does not exist: {session_path}")
+    if not session_path.is_dir():
+        raise ValueError(f"Not a directory: {session_path}")
+    if bool(glob.glob(str(session_path / "Record Node *"))):
+        return  # full session folder
+
+    if bool(glob.glob(str(session_path / "recording*"))):
+        # Could be an experiment folder — valid only if an ancestor contains a Record Node folder
+        for parent in session_path.parents:
+            if bool(glob.glob(str(parent / "Record Node *"))):
+                return
+        raise ValueError(
+            f"'{session_path.name}' looks like an experiment folder but no Open Ephys "
+            "session (Record Node folder) was found in any parent directory."
+        )
+
+    raise ValueError(
+        f"'{session_path.name}' does not appear to be an Open Ephys session folder.\n"
+        "Expected 'Record Node' subdirectories (full session) "
+        "or recording* subdirectories inside a session (single experiment)."
+    )
+
 
 def inspect_session(session_path: Path) -> SessionInfo:
     """Return a :class:`SessionInfo` for the given Open Ephys session folder.

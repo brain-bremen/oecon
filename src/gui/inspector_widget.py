@@ -7,7 +7,7 @@ from PySide6.QtCore import QThread, Signal
 from PySide6.QtGui import QFont
 from PySide6.QtWidgets import QGroupBox, QVBoxLayout, QTextEdit
 
-from oecon.inspect import SessionInfo, format_session_info, inspect_session
+from oecon.inspect import SessionInfo, format_session_info, inspect_session, validate_session_path
 
 
 class _InspectWorker(QThread):
@@ -20,6 +20,7 @@ class _InspectWorker(QThread):
 
     def run(self) -> None:
         try:
+            validate_session_path(self._path)
             self.result.emit(inspect_session(self._path))
         except Exception as exc:
             self.error.emit(str(exc))

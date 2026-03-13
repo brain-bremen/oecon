@@ -7,8 +7,8 @@ from pydantic import ValidationError
 from PySide6.QtCore import QThread, Signal
 from PySide6.QtGui import QFont
 from PySide6.QtWidgets import (
-    QFileDialog, QFormLayout, QHBoxLayout, QLabel, QLineEdit, QMainWindow,
-    QMessageBox, QPushButton, QComboBox, QSpinBox, QTabWidget, QTextEdit,
+    QFileDialog, QFormLayout, QGroupBox, QHBoxLayout, QLabel, QLineEdit, QListWidget,
+    QMainWindow, QMessageBox, QPushButton, QComboBox, QSpinBox, QTabWidget, QTextEdit,
     QVBoxLayout, QWidget,
 )
 
@@ -20,6 +20,7 @@ from oecon.config import (
     TrialMapConfig, load_config_from_file, save_config_to_file,
 )
 from oecon.convert_open_ephys_to_dh5 import convert_open_ephys_recording_to_dh5
+from oecon.inspect import validate_session_path
 
 from gui.config_widget import ConfigStepWidget
 from gui.inspector_widget import SessionInspectorWidget
@@ -116,10 +117,13 @@ class MainWindow(QMainWindow):
         root = QVBoxLayout(central)
         root.setSpacing(8)
 
-        # Session / output paths
-        top_form = QFormLayout()
-        top_form.setFieldGrowthPolicy(QFormLayout.FieldGrowthPolicy.ExpandingFieldsGrow)
+        # Input group: session selector + inspector
+        input_group = QGroupBox("Input")
+        input_layout = QVBoxLayout(input_group)
+        input_layout.setSpacing(6)
 
+        input_form = QFormLayout()
+        input_form.setFieldGrowthPolicy(QFormLayout.FieldGrowthPolicy.ExpandingFieldsGrow)
         self._session_edit = QLineEdit()
         self._session_edit.setPlaceholderText("Select Open Ephys session folder…")
         self._session_edit.editingFinished.connect(self._refresh_inspector)
@@ -128,7 +132,18 @@ class MainWindow(QMainWindow):
         session_row = QHBoxLayout()
         session_row.addWidget(self._session_edit)
         session_row.addWidget(session_btn)
-        top_form.addRow("Session:", session_row)
+        input_form.addRow("Session:", session_row)
+        input_layout.addLayout(input_form)
+
+        self._inspector = SessionInspectorWidget()
+        input_layout.addWidget(self._inspector)
+
+        root.addWidget(input_group)
+
+        # Output group: output folder + format + workers
+        output_group = QGroupBox("Output")
+        output_form = QFormLayout(output_group)
+        output_form.setFieldGrowthPolicy(QFormLayout.FieldGrowthPolicy.ExpandingFieldsGrow)
 
         self._output_edit = QLineEdit()
         self._output_edit.setPlaceholderText("Defaults to session parent folder")
@@ -137,12 +152,11 @@ class MainWindow(QMainWindow):
         output_row = QHBoxLayout()
         output_row.addWidget(self._output_edit)
         output_row.addWidget(output_btn)
-        top_form.addRow("Output:", output_row)
+        output_form.addRow("Folder:", output_row)
 
         meta_row = QHBoxLayout()
         self._format_combo = QComboBox()
         self._format_combo.addItem(OutputFormat.DH5.value.upper(), userData=OutputFormat.DH5)
-        meta_row.addWidget(QLabel("Format:"))
         meta_row.addWidget(self._format_combo)
         meta_row.addSpacing(20)
         meta_row.addWidget(QLabel("Workers (n_jobs):"))
@@ -153,13 +167,9 @@ class MainWindow(QMainWindow):
         self._n_jobs_spin.setEnabled(False)
         meta_row.addWidget(self._n_jobs_spin)
         meta_row.addStretch()
-        top_form.addRow("", meta_row)
+        output_form.addRow("Format:", meta_row)
 
-        root.addLayout(top_form)
-
-        # Session inspector
-        self._inspector = SessionInspectorWidget()
-        root.addWidget(self._inspector)
+        root.addWidget(output_group)
 
         # Step tabs
         self._tabs = QTabWidget()
@@ -275,6 +285,13 @@ class MainWindow(QMainWindow):
             return
 
         session_path = Path(session_str)
+
+        try:
+            validate_session_path(session_path)
+        except ValueError as exc:
+            QMessageBox.warning(self, "Invalid session", str(exc))
+            return
+
         output_str = self._output_edit.text().strip()
         output_folder = Path(output_str) if output_str else session_path.parent
         output_folder.mkdir(parents=True, exist_ok=True)

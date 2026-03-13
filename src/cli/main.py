@@ -1,7 +1,7 @@
 import argparse
 from oecon import convert_open_ephys_recording_to_dh5
 from oecon.config import load_config_from_file
-from oecon.inspect import format_session_info, inspect_session
+from oecon.inspect import format_session_info, inspect_session, validate_session_path
 from pathlib import Path
 from open_ephys.analysis.session import Session
 import tkinter as tk
@@ -117,10 +117,7 @@ def main():
         config = None
 
     oe_session_path = Path(args.oe_session)
-    if not oe_session_path.exists():
-        raise FileNotFoundError(
-            f"Open Ephys session folder not found: {oe_session_path}"
-        )
+    validate_session_path(oe_session_path)
 
     if args.inspect:
         print(format_session_info(inspect_session(oe_session_path)))
