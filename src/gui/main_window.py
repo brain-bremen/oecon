@@ -125,25 +125,27 @@ class MainWindow(QMainWindow):
         root = QVBoxLayout(central)
         root.setSpacing(8)
 
+        # --- Input ---
         add_btn = QPushButton("Add…")
         add_btn.clicked.connect(self._pick_session)
         remove_btn = QPushButton("Remove")
         remove_btn.clicked.connect(self._remove_session)
         self._inspector = SessionInspectorWidget(buttons=[add_btn, remove_btn])
+        self._inspector.setTitle("Input — Open Ephys Sessions")
         root.addWidget(self._inspector)
 
-        # Output group: output folder + format + workers
+        # --- Output ---
         output_group = QGroupBox("Output")
         output_form = QFormLayout(output_group)
         output_form.setFieldGrowthPolicy(QFormLayout.FieldGrowthPolicy.ExpandingFieldsGrow)
 
         self._output_edit = QLineEdit()
         self._output_edit.setPlaceholderText("Defaults to session parent folder")
-        output_btn = QPushButton("Browse")
-        output_btn.clicked.connect(self._pick_output)
+        self._output_btn = QPushButton("Browse")
+        self._output_btn.clicked.connect(self._pick_output)
         output_row = QHBoxLayout()
         output_row.addWidget(self._output_edit)
-        output_row.addWidget(output_btn)
+        output_row.addWidget(self._output_btn)
         output_form.addRow("Folder:", output_row)
 
         meta_row = QHBoxLayout()
@@ -160,60 +162,86 @@ class MainWindow(QMainWindow):
         meta_row.addWidget(self._n_jobs_spin)
         meta_row.addStretch()
         output_form.addRow("Format:", meta_row)
-
         root.addWidget(output_group)
 
-        # Step tabs
+        # --- Config ---
+        config_group = QGroupBox("Config")
+        config_layout = QVBoxLayout(config_group)
+        config_layout.setContentsMargins(6, 6, 6, 6)
+
         self._tabs = QTabWidget()
         self._tab_widgets: dict[str, ConfigStepWidget] = {}
         for tab_name, field_name, model_class, enabled in _TAB_CONFIGS:
             widget = ConfigStepWidget(model_class, enabled_by_default=enabled)
             self._tab_widgets[field_name] = widget
             self._tabs.addTab(widget, tab_name)
-        root.addWidget(self._tabs, stretch=1)
 
-        # Progress bars
-        self._session_bar = QProgressBar()
-        self._session_bar.setTextVisible(True)
-        self._session_bar.setRange(0, 1)
-        self._session_bar.setValue(0)
-        self._session_bar.setFormat("Sessions")
-        root.addWidget(self._session_bar)
-
-        self._step_label = QLabel("Step")
-        self._step_bar = QProgressBar()
-        self._step_bar.setTextVisible(True)
-        self._step_bar.setRange(0, 1)
-        self._step_bar.setValue(0)
-        self._step_bar.setFormat("Ready")
-        step_row = QHBoxLayout()
-        step_row.addWidget(self._step_label)
-        step_row.addWidget(self._step_bar, stretch=1)
-        root.addLayout(step_row)
-
-        # Action buttons
         btn_row = QHBoxLayout()
         load_btn = QPushButton("Load Config")
         load_btn.clicked.connect(self._load_config)
         save_btn = QPushButton("Save Config")
         save_btn.clicked.connect(self._save_config)
-        self._run_btn = QPushButton("▶  Run")
-        self._run_btn.setDefault(True)
-        self._run_btn.clicked.connect(self._run)
         btn_row.addWidget(load_btn)
         btn_row.addWidget(save_btn)
         btn_row.addStretch()
-        btn_row.addWidget(self._run_btn)
-        root.addLayout(btn_row)
 
-        # Log output
+        config_layout.addWidget(self._tabs)
+        config_layout.addLayout(btn_row)
+        root.addWidget(config_group, stretch=3)
+
+        # --- Progress ---
+        progress_group = QGroupBox("Progress")
+        progress_layout = QHBoxLayout(progress_group)
+        progress_layout.setContentsMargins(6, 6, 6, 6)
+        progress_layout.setSpacing(8)
+
+        bars_layout = QVBoxLayout()
+        label_width = 60
+
+        session_lbl = QLabel("Sessions")
+        session_lbl.setFixedWidth(label_width)
+        self._session_bar = QProgressBar()
+        self._session_bar.setTextVisible(True)
+        self._session_bar.setRange(0, 0)
+        self._session_bar.setValue(0)
+        self._session_bar.setFormat("0/0")
+        session_row = QHBoxLayout()
+        session_row.addWidget(session_lbl)
+        session_row.addWidget(self._session_bar, stretch=1)
+        bars_layout.addLayout(session_row)
+
+        self._step_label = QLabel("—")
+        self._step_label.setFixedWidth(label_width)
+        self._step_bar = QProgressBar()
+        self._step_bar.setTextVisible(True)
+        self._step_bar.setRange(0, 0)
+        self._step_bar.setValue(0)
+        self._step_bar.setFormat("0/0")
+        step_row = QHBoxLayout()
+        step_row.addWidget(self._step_label)
+        step_row.addWidget(self._step_bar, stretch=1)
+        bars_layout.addLayout(step_row)
+
+        self._run_btn = QPushButton("▶  Run")
+        self._run_btn.setDefault(True)
+        self._run_btn.clicked.connect(self._run)
+
+        progress_layout.addLayout(bars_layout, stretch=1)
+        progress_layout.addWidget(self._run_btn)
+        root.addWidget(progress_group)
+
+        # --- Log ---
+        log_group = QGroupBox("Log")
+        log_layout = QVBoxLayout(log_group)
+        log_layout.setContentsMargins(6, 6, 6, 6)
         self._log_edit = QTextEdit()
         self._log_edit.setReadOnly(True)
-        self._log_edit.setFixedHeight(160)
+        self._log_edit.setFixedHeight(140)
         mono = QFont("Courier New" if sys.platform == "win32" else "Monospace")
         mono.setPointSize(9)
         self._log_edit.setFont(mono)
-        root.addWidget(self._log_edit)
+        log_layout.addWidget(self._log_edit)
+        root.addWidget(log_group)
 
     # ------------------------------------------------------------------
     # Path pickers
@@ -231,9 +259,17 @@ class MainWindow(QMainWindow):
             if not self._output_edit.text():
                 self._output_edit.setText(str(p.parent))
             self._inspector.add(p)
+        self._update_session_bar()
 
     def _remove_session(self) -> None:
         self._inspector.remove_selected()
+        self._update_session_bar()
+
+    def _update_session_bar(self) -> None:
+        n = len(self._inspector.session_paths())
+        self._session_bar.setRange(0, max(n, 1))
+        self._session_bar.setValue(0)
+        self._session_bar.setFormat(f"0/{n}")
 
     def _pick_output(self) -> None:
         path = QFileDialog.getExistingDirectory(self, "Select output folder")
@@ -315,16 +351,16 @@ class MainWindow(QMainWindow):
             return
 
         self._log_edit.clear()
-        self._run_btn.setEnabled(False)
+        self._set_inputs_enabled(False)
 
         n = len(session_paths)
         self._step_bar.setRange(0, 1)
         self._step_bar.setValue(0)
-        self._step_bar.setFormat("Starting…")
-        self._step_label.setText("Step")
+        self._step_bar.setFormat("0/1")
+        self._step_label.setText("—")
         self._session_bar.setRange(0, n)
         self._session_bar.setValue(0)
-        self._session_bar.setFormat(f"Session 0 / {n}")
+        self._session_bar.setFormat(f"0/{n}")
 
         self._worker = _ConversionWorker(session_paths, output_folder, config, parent=self)
         self._worker.log_message.connect(self._append_log)
@@ -337,25 +373,31 @@ class MainWindow(QMainWindow):
     def _append_log(self, msg: str) -> None:
         self._log_edit.append(msg)
 
+    def _set_inputs_enabled(self, enabled: bool) -> None:
+        self._inspector.setEnabled(enabled)
+        self._output_edit.setEnabled(enabled)
+        self._output_btn.setEnabled(enabled)
+        self._format_combo.setEnabled(enabled)
+        self._tabs.setEnabled(enabled)
+        self._run_btn.setEnabled(enabled)
+
     def _on_step_progress(self, step_name: str, done: int, total: int) -> None:
         self._step_bar.setRange(0, total)
         self._step_bar.setValue(done)
         self._step_label.setText(step_name)
-        self._step_bar.setFormat(f"{done} / {total}")
+        self._step_bar.setFormat(f"{done}/{total}")
 
     def _on_session_progress(self, done: int, total: int) -> None:
         self._session_bar.setValue(done)
-        self._session_bar.setFormat(f"Session {done} / {total}")
+        self._session_bar.setFormat(f"{done}/{total}")
 
     def _on_finished(self) -> None:
-        self._run_btn.setEnabled(True)
-        self._step_bar.setFormat("Done")
-        self._step_label.setText("Step")
+        self._set_inputs_enabled(True)
+        self._step_label.setText("—")
         self._append_log("--- Conversion complete ---")
 
     def _on_error(self, msg: str) -> None:
-        self._run_btn.setEnabled(True)
-        self._step_bar.setFormat("Error")
-        self._step_label.setText("Step")
+        self._set_inputs_enabled(True)
+        self._step_label.setText("—")
         self._append_log(f"ERROR: {msg}")
         QMessageBox.critical(self, "Conversion failed", msg)
