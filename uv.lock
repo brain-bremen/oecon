@@ -497,6 +497,7 @@ dependencies = [
     { name = "open-ephys-python-tools" },
     { name = "psutil" },
     { name = "pydantic" },
+    { name = "pyside6" },
     { name = "scipy" },
     { name = "vstim-python-tools" },
 ]
@@ -508,9 +509,6 @@ dev = [
     { name = "pytest-plt" },
     { name = "scipy-stubs" },
 ]
-gui = [
-    { name = "pyside6" },
-]
 
 [package.metadata]
 requires-dist = [
@@ -519,6 +517,7 @@ requires-dist = [
     { name = "open-ephys-python-tools" },
     { name = "psutil", specifier = ">=7.2.2" },
     { name = "pydantic", specifier = ">=2.0" },
+    { name = "pyside6", specifier = ">=6.7" },
     { name = "scipy", specifier = ">=1.15.2" },
     { name = "vstim-python-tools", git = "https://github.com/brain-bremen/vstim-python-tools.git" },
 ]
@@ -530,7 +529,6 @@ dev = [
     { name = "pytest-plt", specifier = ">=1.1.1" },
     { name = "scipy-stubs", specifier = ">=1.15.3.0" },
 ]
-gui = [{ name = "pyside6", specifier = ">=6.7" }]
 
 [[package]]
 name = "open-ephys-python-tools"

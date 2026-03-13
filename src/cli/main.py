@@ -1,6 +1,7 @@
 import argparse
 from oecon import convert_open_ephys_recording_to_dh5
 from oecon.config import load_config_from_file
+from oecon.inspect import format_session_info, inspect_session
 from pathlib import Path
 from open_ephys.analysis.session import Session
 import tkinter as tk
@@ -96,6 +97,11 @@ def main():
         "--config", type=str, help="Path to the configuration JSON file."
     )
     parser.add_argument("--tdr", type=str, help="Path to the TDR file.")
+    parser.add_argument(
+        "--inspect",
+        action="store_true",
+        help="Print a summary of the session contents and exit.",
+    )
 
     # If oe_session is not provided, open a file dialog to pick it
     args, unknown = parser.parse_known_args()
@@ -115,6 +121,10 @@ def main():
         raise FileNotFoundError(
             f"Open Ephys session folder not found: {oe_session_path}"
         )
+
+    if args.inspect:
+        print(format_session_info(inspect_session(oe_session_path)))
+        return
 
     session = Session(str(oe_session_path))
     recording = session.recordnodes[0].recordings[0]

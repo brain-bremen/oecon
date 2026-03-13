@@ -20,6 +20,7 @@ from oecon.config import (
 from oecon.convert_open_ephys_to_dh5 import convert_open_ephys_recording_to_dh5
 
 from gui.config_widget import ConfigStepWidget
+from gui.inspector_widget import SessionInspectorWidget
 
 # (tab label, OpenEphysToDhConfig field name, model class, enabled by default)
 _TAB_CONFIGS = [
@@ -107,6 +108,7 @@ class MainWindow(QMainWindow):
 
         self._session_edit = QLineEdit()
         self._session_edit.setPlaceholderText("Select Open Ephys session folder…")
+        self._session_edit.editingFinished.connect(self._refresh_inspector)
         session_btn = QPushButton("Browse")
         session_btn.clicked.connect(self._pick_session)
         session_row = QHBoxLayout()
@@ -140,6 +142,10 @@ class MainWindow(QMainWindow):
         top_form.addRow("", meta_row)
 
         root.addLayout(top_form)
+
+        # Session inspector
+        self._inspector = SessionInspectorWidget()
+        root.addWidget(self._inspector)
 
         # Step tabs
         self._tabs = QTabWidget()
@@ -184,6 +190,18 @@ class MainWindow(QMainWindow):
             self._session_edit.setText(path)
             if not self._output_edit.text():
                 self._output_edit.setText(str(Path(path).parent))
+            self._inspector.load(Path(path))
+
+    def _refresh_inspector(self) -> None:
+        text = self._session_edit.text().strip()
+        if text:
+            p = Path(text)
+            if p.is_dir():
+                self._inspector.load(p)
+            else:
+                self._inspector.clear()
+        else:
+            self._inspector.clear()
 
     def _pick_output(self) -> None:
         path = QFileDialog.getExistingDirectory(self, "Select output folder")
