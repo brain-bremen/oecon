@@ -23,6 +23,10 @@ from oecon.inspect import validate_session_path
 
 from gui.config_widget import ConfigStepWidget
 from gui.inspector_widget import SessionInspectorWidget
+from gui.settings import (
+    get_last_config_path, get_last_session_dir,
+    set_last_config_path, set_last_session_dir,
+)
 
 # (tab label, OpenEphysToDhConfig field name, model class, enabled by default)
 _TAB_CONFIGS = [
@@ -101,6 +105,7 @@ class MainWindow(QMainWindow):
         self.setMinimumSize(720, 680)
         self._worker: _ConversionWorker | None = None
         self._setup_ui()
+        self._restore_settings()
 
     # ------------------------------------------------------------------
     # UI construction
@@ -188,7 +193,8 @@ class MainWindow(QMainWindow):
     # ------------------------------------------------------------------
 
     def _pick_session(self) -> None:
-        path = QFileDialog.getExistingDirectory(self, "Select Open Ephys session folder")
+        initial = get_last_session_dir() or ""
+        path = QFileDialog.getExistingDirectory(self, "Select Open Ephys session folder", initial)
         if not path:
             return
         p = Path(path)
@@ -197,6 +203,7 @@ class MainWindow(QMainWindow):
         except ValueError as exc:
             QMessageBox.warning(self, "Invalid session", str(exc))
             return
+        set_last_session_dir(p)
         if not self._output_edit.text():
             self._output_edit.setText(str(p.parent))
         self._inspector.add(p)
@@ -231,23 +238,33 @@ class MainWindow(QMainWindow):
                 break
         self._n_jobs_spin.setValue(config.n_jobs)
 
+    def _restore_settings(self) -> None:
+        config_path = get_last_config_path()
+        if config_path:
+            try:
+                self._apply_config(load_config_from_file(config_path))
+            except Exception:
+                pass  # silently ignore stale/broken config
+
     def _load_config(self) -> None:
-        path, _ = QFileDialog.getOpenFileName(self, "Load config", filter="JSON (*.json)")
+        initial = get_last_config_path() or ""
+        path, _ = QFileDialog.getOpenFileName(self, "Load config", initial, filter="JSON (*.json)")
         if not path:
             return
         try:
             self._apply_config(load_config_from_file(path))
+            set_last_config_path(path)
         except Exception as exc:
             QMessageBox.critical(self, "Load failed", str(exc))
 
     def _save_config(self) -> None:
-        path, _ = QFileDialog.getSaveFileName(
-            self, "Save config", filter="JSON (*.json)"
-        )
+        initial = get_last_config_path() or ""
+        path, _ = QFileDialog.getSaveFileName(self, "Save config", initial, filter="JSON (*.json)")
         if not path:
             return
         try:
             save_config_to_file(path, self._build_config())
+            set_last_config_path(path)
         except Exception as exc:
             QMessageBox.critical(self, "Save failed", str(exc))
 

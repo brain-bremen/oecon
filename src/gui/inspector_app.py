@@ -7,6 +7,7 @@ from PySide6.QtWidgets import (
 
 from gui.app import _apply_dark_palette
 from gui.inspector_widget import SessionInspectorWidget
+from gui.settings import get_last_session_dir, set_last_session_dir
 from oecon.inspect import validate_session_path
 
 
@@ -33,7 +34,8 @@ class _InspectorWindow(QMainWindow):
             self._inspector.add(session_path)
 
     def _pick_session(self) -> None:
-        path = QFileDialog.getExistingDirectory(self, "Select Open Ephys session folder")
+        initial = get_last_session_dir() or ""
+        path = QFileDialog.getExistingDirectory(self, "Select Open Ephys session folder", initial)
         if not path:
             return
         p = Path(path)
@@ -42,6 +44,7 @@ class _InspectorWindow(QMainWindow):
         except ValueError as exc:
             QMessageBox.warning(self, "Invalid session", str(exc))
             return
+        set_last_session_dir(p)
         self._inspector.add(p)
 
     def _remove_session(self) -> None:
