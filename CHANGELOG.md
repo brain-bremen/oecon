@@ -9,19 +9,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- **GUI**: new PySide6 application (`oecon-gui`) with layout organised into labelled groupboxes — Input, Output, Config, Progress, Log
-- **Multi-session support**: add multiple Open Ephys sessions via the session inspector tree; sessions are all shown simultaneously with their recordings, streams, channel names, and event counts
-- **Session inspector** (`oecon-inspect`): new standalone GUI app for browsing Open Ephys sessions without converting
-- **Config includes session paths and output folder**: saving a config now captures everything needed to reproduce a run; loading it re-populates the session list and output folder
-- **Progress bars**: per-step/channel progress bar and per-session progress bar, always visible; driven by `on_progress` callback threaded through the conversion pipeline
+- **GUI** (`oecon-gui`): new PySide6 application for converting Open Ephys sessions, with groupboxes for Input, Output, Config, Progress, and Log
+- **Session inspector** (`oecon-inspect`): new standalone GUI app for browsing Open Ephys sessions without converting; shows recordings, streams, channel names, and event counts per stream
+- **Multi-session support**: multiple Open Ephys sessions can be added and converted in one run
+- **Config includes session paths and output folder**: saving a config captures everything needed to reproduce a run; loading it re-populates the session list and output folder
+- **Progress bars**: per-step/channel and per-session progress bars driven by an `on_progress` callback threaded through the conversion pipeline
 - **CLI progress via tqdm**: step and session progress bars in the terminal; log output redirected through `tqdm` to prevent interleaving
-- **Persistent settings**: last-used session directory and config file path remembered across restarts (via `QSettings`)
-- **Multi-directory picker**: select multiple session folders in a single file dialog
-- **Open Ephys session validation**: selected folders are validated as proper sessions before adding; accepts full session root (contains `Record Node *`) or a single experiment folder inside one
-- **Human-readable Pydantic validation errors**: config errors shown as bullet-point lists instead of raw JSON
-- **Version in window title**: both `oecon-gui` and `oecon-inspect` display the current version
-- **Event counts in inspector**: number of events shown per event stream in the session tree
-- **Dark theme**: Fusion style with explicit dark palette to avoid unreadable text under KDE light themes
+- **Persistent settings**: last-used session directory and config file path remembered across restarts
+- **Open Ephys session validation**: selected folders are validated as proper sessions; accepts full session root (contains `Record Node *`) or a single experiment folder inside one
+- **Config validation**: invalid config values are now caught and reported as human-readable bullet-point lists
 
 ### Fixed
 
