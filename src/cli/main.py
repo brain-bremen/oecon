@@ -1,9 +1,8 @@
 import argparse
-from oecon import convert_open_ephys_recording_to_dh5
+from oecon import convert_open_ephys_sessions
 from oecon.config import load_config_from_file
 from oecon.inspect import format_session_info, inspect_session, validate_session_path
 from pathlib import Path
-from open_ephys.analysis.session import Session
 import tkinter as tk
 from tkinter import filedialog
 import sys
@@ -83,14 +82,14 @@ def main():
     )
 
     parser.add_argument(
-        "oe_session", type=str, nargs="?", help="Path to Open Ephys session folder(s)."
+        "oe_session", type=str, nargs="*", help="Path(s) to Open Ephys session folder(s)."
     )
 
     parser.add_argument(
         "--output-folder",
         type=str,
         default=None,
-        help="Output folder for the DH5 file. Defaults to the parent folder of oe_session.",
+        help="Output folder for DH5 files. Defaults to each session's parent folder.",
     )
 
     parser.add_argument(
@@ -103,12 +102,21 @@ def main():
         help="Print a summary of the session contents and exit.",
     )
 
-    # If oe_session is not provided, open a file dialog to pick it
     args, unknown = parser.parse_known_args()
-    if args.oe_session is None:
-        args.oe_session = pick_open_ephys_session_via_dialog()
-    if args.oe_session is None:
-        return
+
+    # If no sessions provided, open a file dialog to pick one
+    if not args.oe_session:
+        picked = pick_open_ephys_session_via_dialog()
+        if picked is None:
+            return
+        args.oe_session = [str(picked)]
+
+    # Validate all paths up front
+    session_paths: list[Path] = []
+    for s in args.oe_session:
+        p = Path(s)
+        validate_session_path(p)
+        session_paths.append(p)
 
     # attempt to load config from path if present
     if args.config:
@@ -116,34 +124,15 @@ def main():
     else:
         config = None
 
-    oe_session_path = Path(args.oe_session)
-    validate_session_path(oe_session_path)
-
     if args.inspect:
-        print(format_session_info(inspect_session(oe_session_path)))
+        for session_path in session_paths:
+            print(format_session_info(inspect_session(session_path)))
+            print()
         return
 
-    session = Session(str(oe_session_path))
-    recording = session.recordnodes[0].recordings[0]
+    output_folder = Path(args.output_folder) if args.output_folder else None
 
-    if args.output_folder is None:
-        output_folder = oe_session_path.parent
-    else:
-        output_folder = Path(args.output_folder)
-    output_folder.mkdir(parents=True, exist_ok=True)
-
-    session_name = oe_session_path.name
-
-    recording_index = 0
-    for node in session.recordnodes:
-        for recording in node.recordings:
-            convert_open_ephys_recording_to_dh5(
-                recording=recording,
-                session_name=str(output_folder / session_name),
-                config=config,
-            )
-            recording.experiment_index
-            recording_index += 1
+    convert_open_ephys_sessions(session_paths, output_folder=output_folder, config=config)
 
 
 if __name__ == "__main__":

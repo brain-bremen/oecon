@@ -4,6 +4,7 @@ from pathlib import Path
 import dh5io
 import dh5io.create
 from open_ephys.analysis.recording import Recording
+from open_ephys.analysis.session import Session
 
 from oecon.config import (
     DecimationConfig,
@@ -105,3 +106,32 @@ def convert_open_ephys_recording_to_dh5(
         f"Finished converting OpenEphys recording from {recording.directory} to {dh5filename}"
     )
     # report resulting file size in a human readable format
+
+
+def convert_open_ephys_session(
+    session_path: Path,
+    output_folder: Path | None = None,
+    config: OpenEphysToDhConfig | None = None,
+) -> None:
+    """Convert all recordings in a single Open Ephys session to DH5."""
+    folder = output_folder or session_path.parent
+    folder.mkdir(parents=True, exist_ok=True)
+    session = Session(str(session_path))
+    session_name = str(folder / session_path.name)
+    for node in session.recordnodes:
+        for recording in node.recordings:
+            convert_open_ephys_recording_to_dh5(
+                recording=recording,
+                session_name=session_name,
+                config=config,
+            )
+
+
+def convert_open_ephys_sessions(
+    session_paths: list[Path],
+    output_folder: Path | None = None,
+    config: OpenEphysToDhConfig | None = None,
+) -> None:
+    """Convert all recordings across multiple Open Ephys sessions to DH5."""
+    for session_path in session_paths:
+        convert_open_ephys_session(session_path, output_folder=output_folder, config=config)

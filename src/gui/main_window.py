@@ -7,19 +7,18 @@ from pydantic import ValidationError
 from PySide6.QtCore import QThread, Signal
 from PySide6.QtGui import QFont
 from PySide6.QtWidgets import (
-    QFileDialog, QFormLayout, QGroupBox, QHBoxLayout, QLabel, QLineEdit, QListWidget,
-    QMainWindow, QMessageBox, QPushButton, QComboBox, QSpinBox, QTabWidget, QTextEdit,
-    QVBoxLayout, QWidget,
+    QFileDialog, QFormLayout, QGroupBox, QHBoxLayout, QLabel, QLineEdit,
+    QListWidget, QListWidgetItem, QMainWindow, QMessageBox, QPushButton,
+    QComboBox, QSpinBox, QTabWidget, QTextEdit, QVBoxLayout, QWidget,
 )
 
-from open_ephys.analysis.session import Session
 
 from oecon.config import (
     ContinuousMuaConfig, DecimationConfig, EventPreprocessingConfig,
     OpenEphysToDhConfig, OutputFormat, RawConfig, SpikeConfig,
     TrialMapConfig, load_config_from_file, save_config_to_file,
 )
-from oecon.convert_open_ephys_to_dh5 import convert_open_ephys_recording_to_dh5
+from oecon import convert_open_ephys_sessions
 from oecon.inspect import validate_session_path
 
 from gui.config_widget import ConfigStepWidget
@@ -68,13 +67,13 @@ class _ConversionWorker(QThread):
 
     def __init__(
         self,
-        session_path: Path,
-        output_folder: Path,
+        session_paths: list[Path],
+        output_folder: Path | None,
         config: OpenEphysToDhConfig,
         parent=None,
     ):
         super().__init__(parent)
-        self._session_path = session_path
+        self._session_paths = session_paths
         self._output_folder = output_folder
         self._config = config
 
@@ -83,15 +82,11 @@ class _ConversionWorker(QThread):
         root_logger = logging.getLogger()
         root_logger.addHandler(handler)
         try:
-            session = Session(str(self._session_path))
-            session_name = str(self._output_folder / self._session_path.name)
-            for node in session.recordnodes:
-                for recording in node.recordings:
-                    convert_open_ephys_recording_to_dh5(
-                        recording=recording,
-                        session_name=session_name,
-                        config=self._config,
-                    )
+            convert_open_ephys_sessions(
+                self._session_paths,
+                output_folder=self._output_folder,
+                config=self._config,
+            )
             self.finished.emit()
         except Exception as exc:
             self.error.emit(str(exc))
@@ -117,23 +112,27 @@ class MainWindow(QMainWindow):
         root = QVBoxLayout(central)
         root.setSpacing(8)
 
-        # Input group: session selector + inspector
+        # Input group: session list + inspector
         input_group = QGroupBox("Input")
         input_layout = QVBoxLayout(input_group)
         input_layout.setSpacing(6)
 
-        input_form = QFormLayout()
-        input_form.setFieldGrowthPolicy(QFormLayout.FieldGrowthPolicy.ExpandingFieldsGrow)
-        self._session_edit = QLineEdit()
-        self._session_edit.setPlaceholderText("Select Open Ephys session folder…")
-        self._session_edit.editingFinished.connect(self._refresh_inspector)
-        session_btn = QPushButton("Browse")
-        session_btn.clicked.connect(self._pick_session)
         session_row = QHBoxLayout()
-        session_row.addWidget(self._session_edit)
-        session_row.addWidget(session_btn)
-        input_form.addRow("Session:", session_row)
-        input_layout.addLayout(input_form)
+        self._session_list = QListWidget()
+        self._session_list.setFixedHeight(80)
+        self._session_list.currentItemChanged.connect(self._on_session_selected)
+        session_row.addWidget(self._session_list)
+
+        session_btns = QVBoxLayout()
+        add_btn = QPushButton("Add…")
+        add_btn.clicked.connect(self._pick_session)
+        remove_btn = QPushButton("Remove")
+        remove_btn.clicked.connect(self._remove_session)
+        session_btns.addWidget(add_btn)
+        session_btns.addWidget(remove_btn)
+        session_btns.addStretch()
+        session_row.addLayout(session_btns)
+        input_layout.addLayout(session_row)
 
         self._inspector = SessionInspectorWidget()
         input_layout.addWidget(self._inspector)
@@ -210,20 +209,37 @@ class MainWindow(QMainWindow):
 
     def _pick_session(self) -> None:
         path = QFileDialog.getExistingDirectory(self, "Select Open Ephys session folder")
-        if path:
-            self._session_edit.setText(path)
-            if not self._output_edit.text():
-                self._output_edit.setText(str(Path(path).parent))
-            self._inspector.load(Path(path))
+        if not path:
+            return
+        p = Path(path)
+        try:
+            validate_session_path(p)
+        except ValueError as exc:
+            QMessageBox.warning(self, "Invalid session", str(exc))
+            return
+        # Skip duplicates
+        existing = [self._session_list.item(i).data(256) for i in range(self._session_list.count())]
+        if p in existing:
+            return
+        item = QListWidgetItem(p.name)
+        item.setData(256, p)
+        item.setToolTip(str(p))
+        self._session_list.addItem(item)
+        self._session_list.setCurrentItem(item)
+        if not self._output_edit.text():
+            self._output_edit.setText(str(p.parent))
 
-    def _refresh_inspector(self) -> None:
-        text = self._session_edit.text().strip()
-        if text:
-            p = Path(text)
-            if p.is_dir():
-                self._inspector.load(p)
-            else:
-                self._inspector.clear()
+    def _remove_session(self) -> None:
+        row = self._session_list.currentRow()
+        if row >= 0:
+            self._session_list.takeItem(row)
+        if self._session_list.count() == 0:
+            self._inspector.clear()
+
+    def _on_session_selected(self) -> None:
+        item = self._session_list.currentItem()
+        if item:
+            self._inspector.load(item.data(256))
         else:
             self._inspector.clear()
 
@@ -279,22 +295,16 @@ class MainWindow(QMainWindow):
     # ------------------------------------------------------------------
 
     def _run(self) -> None:
-        session_str = self._session_edit.text().strip()
-        if not session_str:
-            QMessageBox.warning(self, "No session", "Please select a session folder.")
-            return
-
-        session_path = Path(session_str)
-
-        try:
-            validate_session_path(session_path)
-        except ValueError as exc:
-            QMessageBox.warning(self, "Invalid session", str(exc))
+        session_paths = [
+            self._session_list.item(i).data(256)
+            for i in range(self._session_list.count())
+        ]
+        if not session_paths:
+            QMessageBox.warning(self, "No session", "Please add at least one session folder.")
             return
 
         output_str = self._output_edit.text().strip()
-        output_folder = Path(output_str) if output_str else session_path.parent
-        output_folder.mkdir(parents=True, exist_ok=True)
+        output_folder = Path(output_str) if output_str else None
 
         try:
             config = self._build_config()
@@ -308,7 +318,7 @@ class MainWindow(QMainWindow):
         self._log_edit.clear()
         self._run_btn.setEnabled(False)
 
-        self._worker = _ConversionWorker(session_path, output_folder, config, parent=self)
+        self._worker = _ConversionWorker(session_paths, output_folder, config, parent=self)
         self._worker.log_message.connect(self._append_log)
         self._worker.finished.connect(self._on_finished)
         self._worker.error.connect(self._on_error)
