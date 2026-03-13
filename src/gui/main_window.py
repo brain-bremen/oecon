@@ -1,7 +1,9 @@
 import logging
+import re
 import sys
 from pathlib import Path
 
+from pydantic import ValidationError
 from PySide6.QtCore import QThread, Signal
 from PySide6.QtGui import QFont
 from PySide6.QtWidgets import (
@@ -31,6 +33,18 @@ _TAB_CONFIGS = [
     ("MUA",       "continuous_mua_config", ContinuousMuaConfig,      True),
     ("Spikes",        "spike_config",          SpikeConfig,             False),
 ]
+
+
+def _format_validation_error(exc: ValidationError) -> str:
+    model_name = exc.title
+    lines = [f"{model_name} has invalid values:"]
+    for error in exc.errors():
+        field = " → ".join(str(part) for part in error["loc"])
+        msg = re.sub(r"^value error,\s*", "", error["msg"], flags=re.IGNORECASE)
+        got = error.get("input")
+        got_str = f" (got {got!r})" if got is not None else ""
+        lines.append(f"  • {field}: {msg}{got_str}")
+    return "\n".join(lines)
 
 
 class _QtLogHandler(logging.Handler):
@@ -267,6 +281,9 @@ class MainWindow(QMainWindow):
 
         try:
             config = self._build_config()
+        except ValidationError as exc:
+            QMessageBox.critical(self, "Config error", _format_validation_error(exc))
+            return
         except Exception as exc:
             QMessageBox.critical(self, "Config error", str(exc))
             return
