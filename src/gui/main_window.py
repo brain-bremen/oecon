@@ -19,13 +19,14 @@ from oecon.config import (
     TrialMapConfig, load_config_from_file, save_config_to_file,
 )
 from oecon import convert_open_ephys_sessions
+from oecon.version import get_version_from_pyproject
 from oecon.inspect import validate_session_path
 
 from gui.config_widget import ConfigStepWidget
 from gui.inspector_widget import SessionInspectorWidget
 from gui.settings import (
     get_last_config_path, get_last_session_dir,
-    set_last_config_path, set_last_session_dir,
+    set_last_config_path, set_last_session_dir, pick_session_dirs,
 )
 
 # (tab label, OpenEphysToDhConfig field name, model class, enabled by default)
@@ -101,7 +102,7 @@ class _ConversionWorker(QThread):
 class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("OEcon")
+        self.setWindowTitle(f"OEcon {get_version_from_pyproject()}")
         self.setMinimumSize(720, 680)
         self._worker: _ConversionWorker | None = None
         self._setup_ui()
@@ -193,20 +194,17 @@ class MainWindow(QMainWindow):
     # ------------------------------------------------------------------
 
     def _pick_session(self) -> None:
-        initial = get_last_session_dir() or ""
-        path = QFileDialog.getExistingDirectory(self, "Select Open Ephys session folder", initial)
-        if not path:
-            return
-        p = Path(path)
-        try:
-            validate_session_path(p)
-        except ValueError as exc:
-            QMessageBox.warning(self, "Invalid session", str(exc))
-            return
-        set_last_session_dir(p)
-        if not self._output_edit.text():
-            self._output_edit.setText(str(p.parent))
-        self._inspector.add(p)
+        paths = pick_session_dirs(self, initial=get_last_session_dir() or "")
+        for p in paths:
+            try:
+                validate_session_path(p)
+            except ValueError as exc:
+                QMessageBox.warning(self, "Invalid session", str(exc))
+                continue
+            set_last_session_dir(p)
+            if not self._output_edit.text():
+                self._output_edit.setText(str(p.parent))
+            self._inspector.add(p)
 
     def _remove_session(self) -> None:
         self._inspector.remove_selected()

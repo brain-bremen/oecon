@@ -1,6 +1,7 @@
 from pathlib import Path
 
 from PySide6.QtCore import QSettings
+from PySide6.QtWidgets import QAbstractItemView, QFileDialog, QListView, QTreeView, QWidget
 
 
 def _q() -> QSettings:
@@ -23,3 +24,19 @@ def get_last_config_path() -> str | None:
 
 def set_last_config_path(path: str) -> None:
     _q().setValue("last_config_path", path)
+
+
+def pick_session_dirs(parent: QWidget, title: str = "Select Open Ephys session folder(s)", initial: str = "") -> list[Path]:
+    """Open a folder-picker dialog that supports selecting multiple directories."""
+    dialog = QFileDialog(parent, title, initial)
+    dialog.setFileMode(QFileDialog.FileMode.Directory)
+    dialog.setOption(QFileDialog.Option.DontUseNativeDialog, True)
+    dialog.setOption(QFileDialog.Option.ShowDirsOnly, True)
+
+    for view in (dialog.findChild(QListView, "listView"), dialog.findChild(QTreeView)):
+        if view:
+            view.setSelectionMode(QAbstractItemView.SelectionMode.ExtendedSelection)
+
+    if not dialog.exec():
+        return []
+    return [Path(p) for p in dialog.selectedFiles()]
