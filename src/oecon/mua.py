@@ -1,5 +1,5 @@
 import logging
-from dataclasses import dataclass
+from collections.abc import Callable
 
 import dh5io
 import dh5io.cont
@@ -10,6 +10,7 @@ import scipy.signal as signal
 from dh5io import DH5File
 from dhspec.cont import create_channel_info, create_empty_index_array
 from open_ephys.analysis.recording import Recording as OERecording
+from pydantic import BaseModel, Field, field_validator
 
 import oecon.default_mappings as default
 from oecon.decimation import DecimationConfig, decimate_np_array
@@ -17,18 +18,39 @@ from oecon.decimation import DecimationConfig, decimate_np_array
 logger = logging.getLogger(__name__)
 
 
-@dataclass
-class FilterConfigBA:
-    b: list[float] | None | npt.NDArray[np.float64]
-    a: list[float] | None | npt.NDArray[np.float64]
+class FilterConfigBA(BaseModel):
+    b: list[float] | None
+    a: list[float] | None
+
+    @field_validator("b", "a", mode="before")
+    @classmethod
+    def coerce_ndarray_to_list(cls, v):
+        if isinstance(v, np.ndarray):
+            return v.tolist()
+        return v
 
 
-@dataclass
-class ContinuousMuaConfig:
-    highpass_cutoff_hz: float = 300.0
-    filter_coecfficients_b_a: FilterConfigBA | None = None
-    included_channel_names: list[str] | None = None  # None for all
-    start_block_id: int = default.DEFAULT_CONT_GROUP_RANGES[default.ContGroups.ESA][0]
+class ContinuousMuaConfig(BaseModel):
+    highpass_cutoff_hz: float = Field(
+        default=300.0,
+        title="High-pass cutoff (Hz)",
+        description="Cutoff frequency for the Butterworth high-pass filter applied before rectification",
+    )
+    filter_coecfficients_b_a: FilterConfigBA | None = Field(
+        default=None,
+        title="Filter coefficients (b, a)",
+        description="Pre-computed filter coefficients (b, a). Auto-computed from the cutoff frequency if left empty",
+    )
+    included_channel_names: list[str] | None = Field(
+        default=None,
+        title="Included channels",
+        description="Channel names to process. Leave empty to include all channels",
+    )
+    start_block_id: int = Field(
+        default=default.DEFAULT_CONT_GROUP_RANGES[default.ContGroups.ESA][0],
+        title="Start CONT block ID",
+        description="First DH5 CONT block ID for MUA output (default range: 4001–5000)",
+    )
 
 
 def extract_continuous_mua(
@@ -36,6 +58,7 @@ def extract_continuous_mua(
     decimation_config: DecimationConfig,
     recording: OERecording,
     dh5file: DH5File,
+    on_channel: "Callable[[int, int], None] | None" = None,
 ) -> ContinuousMuaConfig:
     assert recording.continuous is not None, (
         "No continuous data found in the recording."
@@ -43,6 +66,13 @@ def extract_continuous_mua(
 
     global_channel_index = 0
     dh5_cont_id = config.start_block_id
+
+    total_channels = sum(
+        sum(1 for name in (c.metadata.channel_names or [])
+            if config.included_channel_names is None or name in config.included_channel_names)
+        for c in recording.continuous
+    )
+    ch_done = 0
 
     for oe_cont in recording.continuous:
         oe_metadata = oe_cont.metadata
@@ -133,6 +163,9 @@ def extract_continuous_mua(
 
             dh5_cont_id += 1
             global_channel_index += 1
+            ch_done += 1
+            if on_channel:
+                on_channel(ch_done, total_channels)
 
     dh5io.operations.add_operation_to_file(
         dh5file._file,

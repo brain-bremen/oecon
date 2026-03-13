@@ -11,7 +11,7 @@ from oecon.config import (
     DecimationConfig,
     EventPreprocessingConfig,
     TrialMapConfig,
-    SpikeCuttingConfig,
+    SpikeConfig,
     save_config_to_file,
     load_config_from_file,
     VERSION,
@@ -25,7 +25,7 @@ def make_sample_config():
         decimation_config=DecimationConfig(),
         event_config=EventPreprocessingConfig(),
         trialmap_config=TrialMapConfig(),
-        spike_cutting_config=SpikeCuttingConfig(),
+        spike_config=SpikeConfig(),
         continuous_mua_config=ContinuousMuaConfig()
     )
 
@@ -36,12 +36,11 @@ def test_save_and_load_config_roundtrip():
         config_path = Path(os.path.join(tmpdir, "test_config.json"))
         save_config_to_file(config_path, config)
         loaded_config = load_config_from_file(config_path)
-        # TODO
-        # assert config == loaded_config
-        # assert loaded_config.raw_config == config.raw_config
+        assert config == loaded_config
+        assert loaded_config.raw_config == config.raw_config
         assert loaded_config.decimation_config == config.decimation_config
-        # assert loaded_config.event_config == config.event_config
-        # assert loaded_config.trialmap_config == config.trialmap_config
+        assert loaded_config.event_config == config.event_config
+        assert loaded_config.trialmap_config == config.trialmap_config
 
 
 def test_save_config_creates_file():
@@ -67,7 +66,6 @@ def test_save_and_load_config_with_none_fields():
         decimation_config=None,
         event_config=None,
         trialmap_config=None,
-        spike_cutting_config=None,
         continuous_mua_config=None
     )
     with tempfile.TemporaryDirectory() as tmpdir:
@@ -78,7 +76,7 @@ def test_save_and_load_config_with_none_fields():
         assert loaded_config.decimation_config is None
         assert loaded_config.event_config is None
         assert loaded_config.trialmap_config is None
-        assert loaded_config.spike_cutting_config is None
+        assert loaded_config.spike_config is None
 
 
 def test_load_config_with_newer_version(tmp_path):
@@ -88,7 +86,7 @@ def test_load_config_with_newer_version(tmp_path):
         "decimation_config": None,
         "event_config": None,
         "trialmap_config": None,
-        "spike_cutting_config": None,
+        "continuous_mua_config": None,
         "config_version": VERSION + 1,
     }
     config_path = tmp_path / "newer_version_config.json"

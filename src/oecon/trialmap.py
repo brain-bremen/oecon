@@ -1,6 +1,7 @@
 import warnings
 from dataclasses import dataclass
 from enum import StrEnum
+from pydantic import BaseModel, Field
 from typing import Callable
 import dhspec
 import dhspec.trialmap
@@ -18,10 +19,17 @@ import logging
 logger = logging.getLogger(__name__)
 
 
-@dataclass
-class TrialMapConfig:
-    use_message_center_messages: bool = True
-    trial_start_ttl_line: int | None = None
+class TrialMapConfig(BaseModel):
+    use_message_center_messages: bool = Field(
+        default=True,
+        title="Use Message Center",
+        description="Parse TRIAL_START / TRIAL_END messages from the Open Ephys Message Center (sent by VStim)",
+    )
+    trial_start_ttl_line: int | None = Field(
+        default=None,
+        title="Trial start TTL line",
+        description="TTL line number to use as an additional trial start trigger. Leave empty to rely solely on Message Center messages",
+    )
 
 
 @dataclass

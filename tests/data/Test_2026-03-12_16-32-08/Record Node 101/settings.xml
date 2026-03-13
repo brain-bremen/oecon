@@ -1,0 +1,161 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<SETTINGS>
+  <INFO>
+    <VERSION>1.0.2</VERSION>
+    <PLUGIN_API_VERSION>10</PLUGIN_API_VERSION>
+    <DATE>12 Mar 2026 16:32:08</DATE>
+    <OS>Windows 11</OS>
+    <MACHINE name="B-SCHMIEDT" cpu_model="AMD Ryzen 7 5700G with Radeon Graphics"
+             cpu_num_cores="8"/>
+  </INFO>
+  <SIGNALCHAIN>
+    <PROCESSOR name="NI-DAQmx" insertionPoint="0" pluginName="NI-DAQmx" type="4"
+               index="1" libraryName="NI-DAQmx" libraryVersion="1.0.1" processorType="2"
+               nodeId="110">
+      <PROCESSOR_PARAMETERS/>
+      <STREAM name="USB-6343" description="Analog input channels from a NIDAQ device"
+              sample_rate="30000.0" channel_count="8">
+        <PARAMETERS/>
+      </STREAM>
+      <CUSTOM_PARAMETERS/>
+      <EDITOR isCollapsed="0" isDrawerOpen="1" displayName="NI-DAQmx" activeStream="0"
+              deviceName="Dev2" sampleRate="30000.0" voltageRange="3" numAnalog="8"
+              numDigital="8" digitalReadSize="32" digitalPortStates="100"/>
+    </PROCESSOR>
+    <PROCESSOR name="Channel Map" insertionPoint="1" pluginName="Channel Map"
+               type="1" index="2" libraryName="Channel Mapper" libraryVersion="1.0.2"
+               processorType="1" nodeId="111">
+      <PROCESSOR_PARAMETERS/>
+      <STREAM name="USB-6343" description="Analog input channels from a NIDAQ device"
+              sample_rate="30000.0" channel_count="2">
+        <PARAMETERS enable_stream="1"/>
+      </STREAM>
+      <CUSTOM_PARAMETERS>
+        <STREAM>
+          <CH index="0" enabled="1"/>
+          <CH index="1" enabled="0"/>
+          <CH index="3" enabled="0"/>
+          <CH index="4" enabled="0"/>
+          <CH index="5" enabled="0"/>
+          <CH index="6" enabled="0"/>
+          <CH index="7" enabled="0"/>
+          <CH index="2" enabled="1"/>
+        </STREAM>
+      </CUSTOM_PARAMETERS>
+      <EDITOR isCollapsed="0" isDrawerOpen="0" displayName="Channel Map" activeStream="0"/>
+    </PROCESSOR>
+    <PROCESSOR name="Network Events" insertionPoint="1" pluginName="Network Events"
+               type="1" index="11" libraryName="Network Events" libraryVersion="1.0.0"
+               processorType="1" nodeId="109">
+      <PROCESSOR_PARAMETERS port="5556" broadcast_all_messages="0"/>
+      <STREAM name="USB-6343" description="Analog input channels from a NIDAQ device"
+              sample_rate="30000.0" channel_count="2">
+        <PARAMETERS enable_stream="1"/>
+      </STREAM>
+      <CUSTOM_PARAMETERS/>
+      <EDITOR isCollapsed="0" isDrawerOpen="0" displayName="Network Events"
+              activeStream="0"/>
+    </PROCESSOR>
+    <PROCESSOR name="Record Node" insertionPoint="1" pluginName="Record Node"
+               type="0" index="3" libraryName="" libraryVersion="" processorType="8"
+               nodeId="101">
+      <PROCESSOR_PARAMETERS directory="None" engine="0" events="1" spikes="1" main_sync="0"/>
+      <STREAM name="USB-6343" description="Analog input channels from a NIDAQ device"
+              sample_rate="30000.0" channel_count="2">
+        <PARAMETERS channels="" sync_line="0"/>
+      </STREAM>
+      <CUSTOM_PARAMETERS fifoMonitorsVisible="1"/>
+      <EDITOR isCollapsed="0" isDrawerOpen="0" displayName="Record Node" activeStream="0"/>
+    </PROCESSOR>
+    <PROCESSOR name="LFP Viewer" insertionPoint="1" pluginName="LFP Viewer"
+               type="1" index="4" libraryName="LFP viewer" libraryVersion="1.0.2"
+               processorType="3" nodeId="102">
+      <PROCESSOR_PARAMETERS/>
+      <STREAM name="USB-6343" description="Analog input channels from a NIDAQ device"
+              sample_rate="30000.0" channel_count="2">
+        <PARAMETERS/>
+      </STREAM>
+      <CUSTOM_PARAMETERS/>
+      <EDITOR isCollapsed="0" isDrawerOpen="0" displayName="LFP Viewer" activeStream="0"
+              Type="LfpDisplayEditor" tabText="LFP">
+        <TAB Active="1"/>
+        <WINDOW Active="0"/>
+        <VALUES SelectedLayout="1"/>
+        <VISUALIZER_PARAMETERS/>
+        <CUSTOM_PARAMETERS>
+          <LFPDISPLAY0 stream_key="110|USB-6343" Range="250,2000,10.0" Timebase="2.0"
+                       Spread="40" colourScheme="1" colourGrouping="1" spikeRaster="OFF"
+                       clipWarning="1" satWarning="1" reverseOrder="0" sortByDepth="0"
+                       channelSkip="1" showChannelNum="0" subtractOffset="0" isInverted="0"
+                       triggerSource="1" trialAvg="0" singleChannelView="-1" EventButtonState="255"
+                       ChannelDisplayState="11" selectedChannelType="2" ScrollX="0"
+                       ScrollY="0"/>
+          <LFPDISPLAY1 stream_key="110|USB-6343" Range="250,2000,10.0" Timebase="2.0"
+                       Spread="40" colourScheme="1" colourGrouping="1" spikeRaster="OFF"
+                       clipWarning="1" satWarning="1" reverseOrder="0" sortByDepth="0"
+                       channelSkip="1" showChannelNum="0" subtractOffset="0" isInverted="0"
+                       triggerSource="1" trialAvg="0" singleChannelView="-1" EventButtonState="255"
+                       ChannelDisplayState="11" selectedChannelType="2" ScrollX="0"
+                       ScrollY="0"/>
+          <LFPDISPLAY2 stream_key="110|USB-6343" Range="250,2000,10.0" Timebase="2.0"
+                       Spread="40" colourScheme="1" colourGrouping="1" spikeRaster="OFF"
+                       clipWarning="1" satWarning="1" reverseOrder="0" sortByDepth="0"
+                       channelSkip="1" showChannelNum="0" subtractOffset="0" isInverted="0"
+                       triggerSource="1" trialAvg="0" singleChannelView="-1" EventButtonState="255"
+                       ChannelDisplayState="11" selectedChannelType="2" ScrollX="0"
+                       ScrollY="0"/>
+          <CANVAS doubleVerticalSplitRatio="0.5" doubleHorizontalSplitRatio="0.5"
+                  tripleHorizontalSplitRatio="0.33,0.66" tripleVerticalSplitRatio="0.33,0.66"
+                  showAllOptions="0"/>
+        </CUSTOM_PARAMETERS>
+      </EDITOR>
+    </PROCESSOR>
+  </SIGNALCHAIN>
+  <CONTROLPANEL isOpen="0" recordPath="C:\Users\schmiedt\Documents\Open Ephys"
+                recordEngine="BINARY" clockMode="0" clockReferenceTime="0" forceNewDirectory="0"/>
+  <AUDIOEDITOR isMuted="0" volume="50.0" noiseGate="0.0"/>
+  <FILENAMECONFIG>
+    <PREPEND state="2" value="Test_"/>
+    <MAIN state="1" value="2026-03-12_16-32-08"/>
+    <APPEND state="0" value=""/>
+  </FILENAMECONFIG>
+  <EDITORVIEWPORT selectedTab="0" scroll="0"/>
+  <GRAPHVIEWER>
+    <NODE id="101" isProcessorInfoVisible="0">
+      <STREAM key="110|USB-6343" isStreamVisible="0" isParamsVisible="0"/>
+    </NODE>
+    <NODE id="109" isProcessorInfoVisible="0">
+      <STREAM key="110|USB-6343" isStreamVisible="0" isParamsVisible="0"/>
+    </NODE>
+    <NODE id="102" isProcessorInfoVisible="0">
+      <STREAM key="110|USB-6343" isStreamVisible="0" isParamsVisible="0"/>
+    </NODE>
+    <NODE id="110" isProcessorInfoVisible="0">
+      <STREAM key="110|USB-6343" isStreamVisible="0" isParamsVisible="0"/>
+    </NODE>
+    <NODE id="111" isProcessorInfoVisible="0">
+      <STREAM key="110|USB-6343" isStreamVisible="0" isParamsVisible="0"/>
+    </NODE>
+  </GRAPHVIEWER>
+  <DATAVIEWPORT>
+    <TABBEDCOMPONENT index="0" selectedTabNodeId="102">
+      <TAB nodeId="0"/>
+      <TAB nodeId="1"/>
+      <TAB nodeId="2"/>
+      <TAB nodeId="102"/>
+    </TABBEDCOMPONENT>
+  </DATAVIEWPORT>
+  <PROCESSORLIST>
+    <COLOUR ID="801" R="50" G="50" B="50"/>
+    <COLOUR ID="804" R="241" G="90" B="41"/>
+    <COLOUR ID="802" R="0" G="174" B="239"/>
+    <COLOUR ID="803" R="0" G="166" B="81"/>
+    <COLOUR ID="805" R="90" G="110" B="110"/>
+    <COLOUR ID="806" R="255" G="0" B="0"/>
+    <COLOUR ID="807" R="0" G="0" B="0"/>
+  </PROCESSORLIST>
+  <UICOMPONENT isProcessorListOpen="1" isEditorViewportOpen="1" consoleOpenInWindow="0"/>
+  <AUDIO sampleRate="48000.0" bufferSize="1024" deviceType="Windows Audio"/>
+  <MESSAGES/>
+</SETTINGS>

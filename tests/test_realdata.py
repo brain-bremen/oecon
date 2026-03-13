@@ -1,56 +1,37 @@
-from pathlib import Path
-import os
-import open_ephys.analysis as oe
-from open_ephys.analysis.formats import BinaryRecording
+import numpy as np
 import pytest
-from oecon.convert_open_ephys_to_dh5 import (
-    convert_open_ephys_recording_to_dh5 as oerec2dh,
-)
-from oecon.events import (
-    EventMetadata,
-    Event,
-    Messages,
-    FullWordEvent,
-    event_from_eventfolder,
-)
+from pathlib import Path
+from dh5io import DH5File
 
-# session_name = "Kobi_2025-03-31_11-48-13"
-# session_name = "Test_2025-04-03_12-48-58"
-# session_name = "Test_2025-04-03_12-55-07"
-session_name = "Test"
-
-# Define the relative path to the data folder
-data_folder = Path(__file__).parent / "data" / session_name
-
-# Check if the data folder exists
-skip_real_data_tests = not (data_folder.exists() and data_folder.is_dir())
+from conftest import skip_if_no_data, DATA_FOLDER, GOLDEN_DH5_PATH
+from oecon.events import EventMetadata, Event, Messages, FullWordEvent, event_from_eventfolder
 
 
-@pytest.fixture()
-def recording() -> BinaryRecording:
-    session = oe.Session(str(data_folder))
-    assert session is not None, "Failed to load session data"
-
-    recording_index = 0
-    recording = session.recordnodes[0].recordings[recording_index]
-    return recording
-
-
-@pytest.mark.skipif(skip_real_data_tests, reason="Data folder does not exist")
-def test_load_data(recording):
-    oerec2dh(
-        recording,
-        session_name,
-    )
-
-
-@pytest.mark.skipif(skip_real_data_tests, reason="Data folder does not exist")
-def test_load_events(recording):
-    events = recording.info["events"]
+@skip_if_no_data
+def test_load_events(oe_recording):
+    events = oe_recording.info["events"]
     for event in events:
         metadata = EventMetadata(**event)
         event_data = event_from_eventfolder(
-            recording_directory=recording.directory,
+            recording_directory=oe_recording.directory,
             metadata=metadata,
         )
         assert isinstance(event_data, (Event, Messages, FullWordEvent))
+
+
+@skip_if_no_data
+def test_regression_matches_golden(fresh_dh5_path, golden_dh5):
+    """Conversion with the same config must reproduce the golden DH5 exactly."""
+    fresh = DH5File(str(fresh_dh5_path))
+    try:
+        assert set(fresh.get_cont_group_ids()) == set(golden_dh5.get_cont_group_ids())
+
+        for cont_id in golden_dh5.get_cont_group_ids():
+            golden_data = golden_dh5.get_cont_data_by_id(cont_id)
+            fresh_data = fresh.get_cont_data_by_id(cont_id)
+            assert np.array_equal(golden_data, fresh_data), f"CONT {cont_id} data mismatch"
+
+        assert np.array_equal(golden_dh5.get_events_array(), fresh.get_events_array())
+        assert np.array_equal(golden_dh5.get_trialmap().recarray, fresh.get_trialmap().recarray)
+    finally:
+        fresh._file.close()

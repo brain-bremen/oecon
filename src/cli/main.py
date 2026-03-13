@@ -1,11 +1,13 @@
 import argparse
-from oecon import convert_open_ephys_recording_to_dh5
+from oecon import convert_open_ephys_session
 from oecon.config import load_config_from_file
+from oecon.inspect import format_session_info, inspect_session, validate_session_path
 from pathlib import Path
-from open_ephys.analysis.session import Session
 import tkinter as tk
 from tkinter import filedialog
 import sys
+from tqdm import tqdm
+from tqdm.contrib.logging import logging_redirect_tqdm
 
 if sys.platform == "win32":
     import winreg
@@ -82,27 +84,41 @@ def main():
     )
 
     parser.add_argument(
-        "oe_session", type=str, nargs="?", help="Path to Open Ephys session folder(s)."
+        "oe_session", type=str, nargs="*", help="Path(s) to Open Ephys session folder(s)."
     )
 
     parser.add_argument(
         "--output-folder",
         type=str,
         default=None,
-        help="Output folder for the DH5 file. Defaults to the parent folder of oe_session.",
+        help="Output folder for DH5 files. Defaults to each session's parent folder.",
     )
 
     parser.add_argument(
         "--config", type=str, help="Path to the configuration JSON file."
     )
     parser.add_argument("--tdr", type=str, help="Path to the TDR file.")
+    parser.add_argument(
+        "--inspect",
+        action="store_true",
+        help="Print a summary of the session contents and exit.",
+    )
 
-    # If oe_session is not provided, open a file dialog to pick it
     args, unknown = parser.parse_known_args()
-    if args.oe_session is None:
-        args.oe_session = pick_open_ephys_session_via_dialog()
-    if args.oe_session is None:
-        return
+
+    # If no sessions provided, open a file dialog to pick one
+    if not args.oe_session:
+        picked = pick_open_ephys_session_via_dialog()
+        if picked is None:
+            return
+        args.oe_session = [str(picked)]
+
+    # Validate all paths up front
+    session_paths: list[Path] = []
+    for s in args.oe_session:
+        p = Path(s)
+        validate_session_path(p)
+        session_paths.append(p)
 
     # attempt to load config from path if present
     if args.config:
@@ -110,33 +126,35 @@ def main():
     else:
         config = None
 
-    oe_session_path = Path(args.oe_session)
-    if not oe_session_path.exists():
-        raise FileNotFoundError(
-            f"Open Ephys session folder not found: {oe_session_path}"
-        )
+    if args.inspect:
+        for session_path in session_paths:
+            print(format_session_info(inspect_session(session_path)))
+            print()
+        return
 
-    session = Session(str(oe_session_path))
-    recording = session.recordnodes[0].recordings[0]
+    output_folder = Path(args.output_folder) if args.output_folder else None
 
-    if args.output_folder is None:
-        output_folder = oe_session_path.parent
-    else:
-        output_folder = Path(args.output_folder)
-    output_folder.mkdir(parents=True, exist_ok=True)
+    session_bar = tqdm(session_paths, desc="Sessions", unit="session", disable=len(session_paths) == 1)
+    step_bar: tqdm | None = None
 
-    session_name = oe_session_path.name
+    def on_progress(step_name: str, done: int, total: int) -> None:
+        nonlocal step_bar
+        if step_bar is None or step_bar.total != total:
+            if step_bar is not None:
+                step_bar.close()
+            step_bar = tqdm(total=total, desc=step_name, unit="unit", leave=False)
+        step_bar.set_description(step_name)
+        step_bar.n = done
+        step_bar.refresh()
 
-    recording_index = 0
-    for node in session.recordnodes:
-        for recording in node.recordings:
-            convert_open_ephys_recording_to_dh5(
-                recording=recording,
-                session_name=str(output_folder / session_name),
-                config=config,
-            )
-            recording.experiment_index
-            recording_index += 1
+    with logging_redirect_tqdm():
+        for session_path in session_bar:
+            convert_open_ephys_session(session_path, output_folder=output_folder, config=config, on_progress=on_progress)
+            if step_bar is not None:
+                step_bar.close()
+                step_bar = None
+
+    session_bar.close()
 
 
 if __name__ == "__main__":

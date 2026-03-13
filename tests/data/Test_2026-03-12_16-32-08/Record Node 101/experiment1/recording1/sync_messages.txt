@@ -1,0 +1,2 @@
+Software Time (milliseconds since midnight Jan 1st 1970 UTC): 1773329528431
+Start Time for NI-DAQmx (110) - USB-6343 @ 30000 Hz: 1

@@ -1,5 +1,6 @@
 import logging
-from dataclasses import dataclass
+from collections.abc import Callable
+from enum import StrEnum
 
 import dh5io
 import dh5io.cont
@@ -9,6 +10,7 @@ import numpy as np
 import scipy.signal as signal
 from dh5io import DH5File
 from open_ephys.analysis.recording import Recording
+from pydantic import BaseModel, Field, field_validator
 
 import oecon.version
 from oecon.scaling import scale_to_16_bit_range
@@ -16,15 +18,54 @@ from oecon.scaling import scale_to_16_bit_range
 logger = logging.getLogger(__name__)
 
 
-@dataclass
-class DecimationConfig:
-    downsampling_factor: int = 30
-    ftype: str = "fir"
-    zero_phase: bool = True
-    filter_order: int | None = 600
-    included_channel_names: list[str] | None = None  # doall if None
-    start_block_id: int = 2001
-    scale_max_abs_to: np.int16 | None = None
+class FilterType(StrEnum):
+    FIR = "fir"
+    IIR = "iir"
+
+
+class DecimationConfig(BaseModel):
+    downsampling_factor: int = Field(
+        default=30,
+        title="Downsampling factor",
+        description="Factor by which the sample rate is reduced (e.g. 30 → 1 kHz LFP from 30 kHz raw)",
+    )
+    ftype: FilterType = Field(
+        default=FilterType.FIR,
+        title="Filter type",
+        description="Anti-alias filter type: FIR (linear phase, recommended) or IIR (faster but with phase distortion)",
+    )
+    zero_phase: bool = Field(
+        default=True,
+        title="Zero phase",
+        description="Apply filter twice (forward + backward) to eliminate phase distortion",
+    )
+    filter_order: int | None = Field(
+        default=600,
+        title="Filter order",
+        description="Number of taps (FIR) or poles (IIR). Higher = sharper cutoff but slower. Leave empty for scipy default",
+    )
+    included_channel_names: list[str] | None = Field(
+        default=None,
+        title="Included channels",
+        description="Channel names to process. Leave empty to include all channels",
+    )
+    start_block_id: int = Field(
+        default=2001,
+        title="Start CONT block ID",
+        description="First DH5 CONT block ID for LFP output (default range: 2001–3000)",
+    )
+    scale_max_abs_to: int | None = Field(
+        default=None,
+        title="Scale max abs to",
+        description="If set, rescale so the maximum absolute value maps to this integer. Leave empty to use original bit_volts scaling",
+    )
+
+    @field_validator("downsampling_factor")
+    @classmethod
+    def factor_must_be_positive(cls, v: int) -> int:
+        if v < 1:
+            raise ValueError("downsampling_factor must be >= 1")
+        return v
 
 
 def decimate_np_array(
@@ -41,7 +82,10 @@ def decimate_np_array(
 
 
 def decimate_raw_data(
-    config: DecimationConfig, recording: Recording, dh5file: DH5File
+    config: DecimationConfig,
+    recording: Recording,
+    dh5file: DH5File,
+    on_channel: "Callable[[int, int], None] | None" = None,
 ) -> DecimationConfig:
     assert recording.continuous is not None, (
         "No continuous data found in the recording."
@@ -50,6 +94,13 @@ def decimate_raw_data(
     global_channel_index = 0
     dh5_cont_id = config.start_block_id
     included_channel_names: list[str] = []
+
+    total_channels = sum(
+        sum(1 for name in (c.metadata.channel_names or [])
+            if config.included_channel_names is None or name in config.included_channel_names)
+        for c in recording.continuous
+    )
+    ch_done = 0
 
     for oe_cont in recording.continuous:
         oe_metadata = oe_cont.metadata
@@ -128,6 +179,9 @@ def decimate_raw_data(
 
             dh5_cont_id += 1
             global_channel_index += 1
+            ch_done += 1
+            if on_channel:
+                on_channel(ch_done, total_channels)
 
     dh5io.operations.add_operation_to_file(
         dh5file._file,
