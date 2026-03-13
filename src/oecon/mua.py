@@ -1,4 +1,5 @@
 import logging
+from collections.abc import Callable
 
 import dh5io
 import dh5io.cont
@@ -57,6 +58,7 @@ def extract_continuous_mua(
     decimation_config: DecimationConfig,
     recording: OERecording,
     dh5file: DH5File,
+    on_channel: "Callable[[int, int], None] | None" = None,
 ) -> ContinuousMuaConfig:
     assert recording.continuous is not None, (
         "No continuous data found in the recording."
@@ -64,6 +66,13 @@ def extract_continuous_mua(
 
     global_channel_index = 0
     dh5_cont_id = config.start_block_id
+
+    total_channels = sum(
+        sum(1 for name in (c.metadata.channel_names or [])
+            if config.included_channel_names is None or name in config.included_channel_names)
+        for c in recording.continuous
+    )
+    ch_done = 0
 
     for oe_cont in recording.continuous:
         oe_metadata = oe_cont.metadata
@@ -154,6 +163,9 @@ def extract_continuous_mua(
 
             dh5_cont_id += 1
             global_channel_index += 1
+            ch_done += 1
+            if on_channel:
+                on_channel(ch_done, total_channels)
 
     dh5io.operations.add_operation_to_file(
         dh5file._file,

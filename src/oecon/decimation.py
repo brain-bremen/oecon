@@ -1,4 +1,5 @@
 import logging
+from collections.abc import Callable
 from enum import StrEnum
 
 import dh5io
@@ -81,7 +82,10 @@ def decimate_np_array(
 
 
 def decimate_raw_data(
-    config: DecimationConfig, recording: Recording, dh5file: DH5File
+    config: DecimationConfig,
+    recording: Recording,
+    dh5file: DH5File,
+    on_channel: "Callable[[int, int], None] | None" = None,
 ) -> DecimationConfig:
     assert recording.continuous is not None, (
         "No continuous data found in the recording."
@@ -90,6 +94,13 @@ def decimate_raw_data(
     global_channel_index = 0
     dh5_cont_id = config.start_block_id
     included_channel_names: list[str] = []
+
+    total_channels = sum(
+        sum(1 for name in (c.metadata.channel_names or [])
+            if config.included_channel_names is None or name in config.included_channel_names)
+        for c in recording.continuous
+    )
+    ch_done = 0
 
     for oe_cont in recording.continuous:
         oe_metadata = oe_cont.metadata
@@ -168,6 +179,9 @@ def decimate_raw_data(
 
             dh5_cont_id += 1
             global_channel_index += 1
+            ch_done += 1
+            if on_channel:
+                on_channel(ch_done, total_channels)
 
     dh5io.operations.add_operation_to_file(
         dh5file._file,

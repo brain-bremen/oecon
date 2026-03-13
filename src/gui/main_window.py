@@ -9,7 +9,7 @@ from PySide6.QtGui import QFont
 from PySide6.QtWidgets import (
     QFileDialog, QFormLayout, QGroupBox, QHBoxLayout, QLabel, QLineEdit,
     QMainWindow, QMessageBox, QPushButton, QComboBox, QSpinBox, QTabWidget,
-    QTextEdit, QVBoxLayout, QWidget,
+    QTextEdit, QVBoxLayout, QWidget, QProgressBar,
 )
 
 
@@ -18,7 +18,7 @@ from oecon.config import (
     OpenEphysToDhConfig, OutputFormat, RawConfig, SpikeConfig,
     TrialMapConfig, load_config_from_file, save_config_to_file,
 )
-from oecon import convert_open_ephys_sessions
+from oecon import convert_open_ephys_session
 from oecon.version import get_version_from_pyproject
 from oecon.inspect import validate_session_path
 
@@ -67,6 +67,8 @@ class _QtLogHandler(logging.Handler):
 
 class _ConversionWorker(QThread):
     log_message: Signal = Signal(str)
+    step_progress: Signal = Signal(str, int, int)   # step_name, done, total
+    session_progress: Signal = Signal(int, int)     # done, total
     finished: Signal = Signal()
     error: Signal = Signal(str)
 
@@ -86,12 +88,17 @@ class _ConversionWorker(QThread):
         handler = _QtLogHandler(self.log_message)
         root_logger = logging.getLogger()
         root_logger.addHandler(handler)
+        n = len(self._session_paths)
         try:
-            convert_open_ephys_sessions(
-                self._session_paths,
-                output_folder=self._output_folder,
-                config=self._config,
-            )
+            for i, session_path in enumerate(self._session_paths):
+                self.session_progress.emit(i, n)
+                convert_open_ephys_session(
+                    session_path,
+                    output_folder=self._output_folder,
+                    config=self._config,
+                    on_progress=lambda name, done, total: self.step_progress.emit(name, done, total),
+                )
+                self.session_progress.emit(i + 1, n)
             self.finished.emit()
         except Exception as exc:
             self.error.emit(str(exc))
@@ -164,6 +171,25 @@ class MainWindow(QMainWindow):
             self._tab_widgets[field_name] = widget
             self._tabs.addTab(widget, tab_name)
         root.addWidget(self._tabs, stretch=1)
+
+        # Progress bars
+        self._session_bar = QProgressBar()
+        self._session_bar.setTextVisible(True)
+        self._session_bar.setRange(0, 1)
+        self._session_bar.setValue(0)
+        self._session_bar.setFormat("Sessions")
+        root.addWidget(self._session_bar)
+
+        self._step_label = QLabel("Step")
+        self._step_bar = QProgressBar()
+        self._step_bar.setTextVisible(True)
+        self._step_bar.setRange(0, 1)
+        self._step_bar.setValue(0)
+        self._step_bar.setFormat("Ready")
+        step_row = QHBoxLayout()
+        step_row.addWidget(self._step_label)
+        step_row.addWidget(self._step_bar, stretch=1)
+        root.addLayout(step_row)
 
         # Action buttons
         btn_row = QHBoxLayout()
@@ -291,8 +317,19 @@ class MainWindow(QMainWindow):
         self._log_edit.clear()
         self._run_btn.setEnabled(False)
 
+        n = len(session_paths)
+        self._step_bar.setRange(0, 1)
+        self._step_bar.setValue(0)
+        self._step_bar.setFormat("Starting…")
+        self._step_label.setText("Step")
+        self._session_bar.setRange(0, n)
+        self._session_bar.setValue(0)
+        self._session_bar.setFormat(f"Session 0 / {n}")
+
         self._worker = _ConversionWorker(session_paths, output_folder, config, parent=self)
         self._worker.log_message.connect(self._append_log)
+        self._worker.step_progress.connect(self._on_step_progress)
+        self._worker.session_progress.connect(self._on_session_progress)
         self._worker.finished.connect(self._on_finished)
         self._worker.error.connect(self._on_error)
         self._worker.start()
@@ -300,11 +337,25 @@ class MainWindow(QMainWindow):
     def _append_log(self, msg: str) -> None:
         self._log_edit.append(msg)
 
+    def _on_step_progress(self, step_name: str, done: int, total: int) -> None:
+        self._step_bar.setRange(0, total)
+        self._step_bar.setValue(done)
+        self._step_label.setText(step_name)
+        self._step_bar.setFormat(f"{done} / {total}")
+
+    def _on_session_progress(self, done: int, total: int) -> None:
+        self._session_bar.setValue(done)
+        self._session_bar.setFormat(f"Session {done} / {total}")
+
     def _on_finished(self) -> None:
         self._run_btn.setEnabled(True)
+        self._step_bar.setFormat("Done")
+        self._step_label.setText("Step")
         self._append_log("--- Conversion complete ---")
 
     def _on_error(self, msg: str) -> None:
         self._run_btn.setEnabled(True)
+        self._step_bar.setFormat("Error")
+        self._step_label.setText("Step")
         self._append_log(f"ERROR: {msg}")
         QMessageBox.critical(self, "Conversion failed", msg)

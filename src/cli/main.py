@@ -1,11 +1,13 @@
 import argparse
-from oecon import convert_open_ephys_sessions
+from oecon import convert_open_ephys_session
 from oecon.config import load_config_from_file
 from oecon.inspect import format_session_info, inspect_session, validate_session_path
 from pathlib import Path
 import tkinter as tk
 from tkinter import filedialog
 import sys
+from tqdm import tqdm
+from tqdm.contrib.logging import logging_redirect_tqdm
 
 if sys.platform == "win32":
     import winreg
@@ -132,7 +134,27 @@ def main():
 
     output_folder = Path(args.output_folder) if args.output_folder else None
 
-    convert_open_ephys_sessions(session_paths, output_folder=output_folder, config=config)
+    session_bar = tqdm(session_paths, desc="Sessions", unit="session", disable=len(session_paths) == 1)
+    step_bar: tqdm | None = None
+
+    def on_progress(step_name: str, done: int, total: int) -> None:
+        nonlocal step_bar
+        if step_bar is None or step_bar.total != total:
+            if step_bar is not None:
+                step_bar.close()
+            step_bar = tqdm(total=total, desc=step_name, unit="unit", leave=False)
+        step_bar.set_description(step_name)
+        step_bar.n = done
+        step_bar.refresh()
+
+    with logging_redirect_tqdm():
+        for session_path in session_bar:
+            convert_open_ephys_session(session_path, output_folder=output_folder, config=config, on_progress=on_progress)
+            if step_bar is not None:
+                step_bar.close()
+                step_bar = None
+
+    session_bar.close()
 
 
 if __name__ == "__main__":
