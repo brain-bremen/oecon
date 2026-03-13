@@ -15,6 +15,7 @@ class StreamInfo:
     num_channels: int
     sample_rate: float
     duration_s: float | None  # derived from .dat file size
+    channel_names: list[str] = field(default_factory=list)
 
 
 @dataclass
@@ -88,7 +89,8 @@ def _inspect_recording(rec_dir: str, exp_idx: int, rec_idx: int) -> RecordingInf
             sr = float(cont.get("sample_rate", 0))
             dat = os.path.join(rec_dir, "continuous", cont["folder_name"], "continuous.dat")
             dur = _dat_duration(dat, num_ch, sr) if num_ch and sr else None
-            streams.append(StreamInfo(name=name, num_channels=num_ch, sample_rate=sr, duration_s=dur))
+            channel_names = [ch["channel_name"] for ch in cont.get("channels", []) if "channel_name" in ch]
+            streams.append(StreamInfo(name=name, num_channels=num_ch, sample_rate=sr, duration_s=dur, channel_names=channel_names))
         for ev in info.get("events", []):
             name = ev.get("source_processor") or ev.get("stream_name", "?")
             if name not in event_names:

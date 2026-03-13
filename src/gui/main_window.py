@@ -8,8 +8,8 @@ from PySide6.QtCore import QThread, Signal
 from PySide6.QtGui import QFont
 from PySide6.QtWidgets import (
     QFileDialog, QFormLayout, QGroupBox, QHBoxLayout, QLabel, QLineEdit,
-    QListWidget, QListWidgetItem, QMainWindow, QMessageBox, QPushButton,
-    QComboBox, QSpinBox, QTabWidget, QTextEdit, QVBoxLayout, QWidget,
+    QMainWindow, QMessageBox, QPushButton, QComboBox, QSpinBox, QTabWidget,
+    QTextEdit, QVBoxLayout, QWidget,
 )
 
 
@@ -112,32 +112,12 @@ class MainWindow(QMainWindow):
         root = QVBoxLayout(central)
         root.setSpacing(8)
 
-        # Input group: session list + inspector
-        input_group = QGroupBox("Input")
-        input_layout = QVBoxLayout(input_group)
-        input_layout.setSpacing(6)
-
-        session_row = QHBoxLayout()
-        self._session_list = QListWidget()
-        self._session_list.setFixedHeight(80)
-        self._session_list.currentItemChanged.connect(self._on_session_selected)
-        session_row.addWidget(self._session_list)
-
-        session_btns = QVBoxLayout()
         add_btn = QPushButton("Add…")
         add_btn.clicked.connect(self._pick_session)
         remove_btn = QPushButton("Remove")
         remove_btn.clicked.connect(self._remove_session)
-        session_btns.addWidget(add_btn)
-        session_btns.addWidget(remove_btn)
-        session_btns.addStretch()
-        session_row.addLayout(session_btns)
-        input_layout.addLayout(session_row)
-
-        self._inspector = SessionInspectorWidget()
-        input_layout.addWidget(self._inspector)
-
-        root.addWidget(input_group)
+        self._inspector = SessionInspectorWidget(buttons=[add_btn, remove_btn])
+        root.addWidget(self._inspector)
 
         # Output group: output folder + format + workers
         output_group = QGroupBox("Output")
@@ -217,31 +197,12 @@ class MainWindow(QMainWindow):
         except ValueError as exc:
             QMessageBox.warning(self, "Invalid session", str(exc))
             return
-        # Skip duplicates
-        existing = [self._session_list.item(i).data(256) for i in range(self._session_list.count())]
-        if p in existing:
-            return
-        item = QListWidgetItem(p.name)
-        item.setData(256, p)
-        item.setToolTip(str(p))
-        self._session_list.addItem(item)
-        self._session_list.setCurrentItem(item)
         if not self._output_edit.text():
             self._output_edit.setText(str(p.parent))
+        self._inspector.add(p)
 
     def _remove_session(self) -> None:
-        row = self._session_list.currentRow()
-        if row >= 0:
-            self._session_list.takeItem(row)
-        if self._session_list.count() == 0:
-            self._inspector.clear()
-
-    def _on_session_selected(self) -> None:
-        item = self._session_list.currentItem()
-        if item:
-            self._inspector.load(item.data(256))
-        else:
-            self._inspector.clear()
+        self._inspector.remove_selected()
 
     def _pick_output(self) -> None:
         path = QFileDialog.getExistingDirectory(self, "Select output folder")
@@ -295,10 +256,7 @@ class MainWindow(QMainWindow):
     # ------------------------------------------------------------------
 
     def _run(self) -> None:
-        session_paths = [
-            self._session_list.item(i).data(256)
-            for i in range(self._session_list.count())
-        ]
+        session_paths = self._inspector.session_paths()
         if not session_paths:
             QMessageBox.warning(self, "No session", "Please add at least one session folder.")
             return

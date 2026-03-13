@@ -38,3 +38,4 @@ dev = [
 [project.scripts]
 oecon = "cli.main:main"
 oecon-gui = "gui.app:main"
+oecon-inspect = "gui.inspector_app:main"
