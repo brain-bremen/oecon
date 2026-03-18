@@ -9,14 +9,26 @@ import dh5io
 import numpy as np
 from dh5io import DH5File
 import dh5io.trialmap
+import dh5io.operations
 from open_ephys.analysis.recording import Recording
 from open_ephys.analysis.formats.BinaryRecording import BinaryRecording
 from vstim.tdr import TrialOutcome
 
 from oecon.events import EventMetadata, Messages, event_from_eventfolder
+import oecon.version
 import logging
 
 logger = logging.getLogger(__name__)
+
+
+# BrainBox-compatible outcome names mapped to their vstim.tdr.TrialOutcome equivalents
+# These are written as float64 for backwards compatibility with MATLAB toolbox
+BRAINBOX_OUTCOME_MAPPING = {
+    "SUCCESS": TrialOutcome.Hit,
+    "EARLY": TrialOutcome.Early,
+    "LATE": TrialOutcome.Late,
+    "EYE_ERROR": TrialOutcome.EyeErr,
+}
 
 
 class TrialMapConfig(BaseModel):
@@ -29,6 +41,11 @@ class TrialMapConfig(BaseModel):
         default=None,
         title="Trial start TTL line",
         description="TTL line number to use as an additional trial start trigger. Leave empty to rely solely on Message Center messages",
+    )
+    add_brainbox_outcome_names: bool = Field(
+        default=False,
+        title="Add BrainBox Outcome Names",
+        description="When True, adds BrainBox-compatible outcome names (SUCCESS, EARLY, LATE, EYE_ERROR) as float64 attributes to the Operation in addition to the vstim names. Required for backwards compatibility with MATLAB toolbox.",
     )
 
 
@@ -292,5 +309,38 @@ def process_oe_trialmap(config: TrialMapConfig, recording: Recording, dh5file: D
         )
 
     dh5io.trialmap.add_trialmap_to_file(dh5file._file, new_trialmap)
+
+    # Add outcome mapping attributes to the TRIALMAP dataset
+    trialmap_dataset = dh5file._file["/TRIALMAP"]
+
+    # Always write vstim.tdr.TrialOutcome names as int32 attributes to the dataset
+    for outcome in TrialOutcome:
+        trialmap_dataset.attrs[outcome.name] = np.int32(outcome.value)
+
+    # Optionally add BrainBox-compatible names as float64 to the dataset
+    if config.add_brainbox_outcome_names:
+        for name, vstim_outcome in BRAINBOX_OUTCOME_MAPPING.items():
+            trialmap_dataset.attrs[name] = np.float64(vstim_outcome.value)
+
+    # Add operation to dh5 file
+    dh5io.operations.add_operation_to_file(
+        file=dh5file._file,
+        new_operation_group_name="Write trialmap",
+        tool=f"oecon_v{oecon.version.get_version_from_pyproject()}",
+    )
+
+    # Add outcome mapping attributes to the operation as well
+    operation_groups = list(dh5file._file["/Operations"].keys())
+    latest_operation = sorted(operation_groups)[-1]  # e.g., "003_Write trialmap"
+    operation_group = dh5file._file[f"/Operations/{latest_operation}"]
+
+    # Always write vstim.tdr.TrialOutcome names as int32 attributes to the operation
+    for outcome in TrialOutcome:
+        operation_group.attrs[outcome.name] = np.int32(outcome.value)
+
+    # Optionally add BrainBox-compatible names as float64 to the operation
+    if config.add_brainbox_outcome_names:
+        for name, vstim_code in BRAINBOX_OUTCOME_MAPPING.items():
+            operation_group.attrs[name] = np.float64(vstim_code)
 
     return config
