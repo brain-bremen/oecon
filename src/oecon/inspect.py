@@ -198,11 +198,12 @@ def inspect_session(session_path: Path) -> SessionInfo:
 
 
 def _fmt_size(n: int) -> str:
+    size = float(n)
     for unit in ("B", "KB", "MB", "GB", "TB"):
-        if n < 1024:
-            return f"{n:.1f} {unit}"
-        n //= 1024
-    return f"{n:.1f} PB"
+        if size < 1024:
+            return f"{size:.1f} {unit}"
+        size /= 1024
+    return f"{size:.1f} PB"
 
 
 def _fmt_duration(s: float | None) -> str:

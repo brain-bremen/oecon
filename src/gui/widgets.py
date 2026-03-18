@@ -20,7 +20,7 @@ class ListEditor(QWidget):
         text = self._edit.toPlainText().strip()
         if not text:
             return None
-        return [line for line in text.splitlines() if line.strip()]
+        return [line.strip() for line in text.splitlines() if line.strip()]
 
     def set_value(self, value: list[str] | None) -> None:
         self._edit.setPlainText("\n".join(value) if value else "")

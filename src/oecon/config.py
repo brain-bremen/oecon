@@ -27,11 +27,11 @@ class OutputFormat(StrEnum):
 
 
 class OpenEphysToDhConfig(BaseModel):
-    raw_config: RawConfig | None
-    decimation_config: DecimationConfig | None
-    event_config: EventPreprocessingConfig | None
-    trialmap_config: TrialMapConfig | None
-    continuous_mua_config: ContinuousMuaConfig | None
+    raw_config: RawConfig | None = None
+    decimation_config: DecimationConfig | None = None
+    event_config: EventPreprocessingConfig | None = None
+    trialmap_config: TrialMapConfig | None = None
+    continuous_mua_config: ContinuousMuaConfig | None = None
     spike_config: SpikeConfig | None = None
     output_format: OutputFormat = OutputFormat.DH5
     n_jobs: int = 1

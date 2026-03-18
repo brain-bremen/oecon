@@ -30,9 +30,15 @@ class _InspectWorker(QThread):
 
     def run(self) -> None:
         try:
-            self.result.emit(inspect_session(self._path))
+            if self.isInterruptionRequested():
+                return
+            info = inspect_session(self._path)
+            if self.isInterruptionRequested():
+                return
+            self.result.emit(info)
         except Exception as exc:
-            self.error.emit(str(exc))
+            if not self.isInterruptionRequested():
+                self.error.emit(str(exc))
 
 
 class SessionInspectorWidget(QGroupBox):
@@ -94,8 +100,9 @@ class SessionInspectorWidget(QGroupBox):
         if path in self._workers:
             w = self._workers.pop(path)
             if w.isRunning():
-                w.terminate()
-                w.wait()
+                w.requestInterruption()
+                if not w.wait(2000):  # 2 second timeout
+                    w.terminate()  # fallback if thread doesn't respond
         return path
 
     def session_paths(self) -> list[Path]:
@@ -107,8 +114,11 @@ class SessionInspectorWidget(QGroupBox):
     def clear_all(self) -> None:
         for w in self._workers.values():
             if w.isRunning():
-                w.terminate()
-                w.wait()
+                w.requestInterruption()
+        for w in self._workers.values():
+            if w.isRunning():
+                if not w.wait(2000):  # 2 second timeout
+                    w.terminate()  # fallback if thread doesn't respond
         self._workers.clear()
         self._tree.clear()
 
