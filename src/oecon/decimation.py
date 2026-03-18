@@ -185,8 +185,8 @@ def decimate_raw_data(
 
     dh5io.operations.add_operation_to_file(
         dh5file._file,
-        "decimate_raw_data",
-        f"oecon_v{oecon.version.get_version_from_pyproject()}",
+        "Decimate raw data",
+        f"oecon.decimation (v{oecon.version.get_version_from_pyproject()})",
     )
 
     config.included_channel_names = included_channel_names

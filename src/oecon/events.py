@@ -321,8 +321,8 @@ def process_oe_events(
     # add operation to dh5 file
     dh5io.operations.add_operation_to_file(
         file=dh5file._file,
-        new_operation_group_name="oecon_process_events",
-        tool=f"oecon_v{oecon.version.get_version_from_pyproject()}",
+        new_operation_group_name="Process events",
+        tool=f"oecon.events (v{oecon.version.get_version_from_pyproject()})",
     )
 
     return event_config

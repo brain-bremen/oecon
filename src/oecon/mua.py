@@ -13,6 +13,7 @@ from open_ephys.analysis.recording import Recording as OERecording
 from pydantic import BaseModel, Field, field_validator
 
 import oecon.default_mappings as default
+import oecon.version
 from oecon.decimation import DecimationConfig, decimate_np_array
 
 logger = logging.getLogger(__name__)
@@ -169,8 +170,8 @@ def extract_continuous_mua(
 
     dh5io.operations.add_operation_to_file(
         dh5file._file,
-        "extract_continuous_mua",
-        "oecon_mua_extraction",
+        "Extract continuous MUA",
+        f"oecon.mua (v{oecon.version.get_version_from_pyproject()})",
     )
 
     return config

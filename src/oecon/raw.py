@@ -1,10 +1,12 @@
 import oecon.default_mappings as default
+import oecon.version
 from pydantic import BaseModel, Field
 from open_ephys.analysis.recording import Continuous
 from open_ephys.analysis.recording import Recording
 from open_ephys.analysis.recording import ContinuousMetadata
 from dh5io import DH5File
 import dh5io
+import dh5io.operations
 from dhspec.cont import create_empty_index_array, create_channel_info
 from dh5io.cont import create_cont_group_from_data_in_file
 import numpy as np
@@ -168,5 +170,12 @@ def process_oe_raw_data(
 
     # update included channesl in config
     config.included_channel_names = included_channel_names
+
+    # Add operation to dh5 file
+    dh5io.operations.add_operation_to_file(
+        file=dh5file._file,
+        new_operation_group_name="Write raw data",
+        tool=f"oecon.raw (v{oecon.version.get_version_from_pyproject()})",
+    )
 
     return config

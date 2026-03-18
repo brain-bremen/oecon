@@ -326,7 +326,7 @@ def process_oe_trialmap(config: TrialMapConfig, recording: Recording, dh5file: D
     dh5io.operations.add_operation_to_file(
         file=dh5file._file,
         new_operation_group_name="Write trialmap",
-        tool=f"oecon_v{oecon.version.get_version_from_pyproject()}",
+        tool=f"oecon.trialmap (v{oecon.version.get_version_from_pyproject()})",
     )
 
     # Add outcome mapping attributes to the operation as well
@@ -340,7 +340,7 @@ def process_oe_trialmap(config: TrialMapConfig, recording: Recording, dh5file: D
 
     # Optionally add BrainBox-compatible names as float64 to the operation
     if config.add_brainbox_outcome_names:
-        for name, vstim_code in BRAINBOX_OUTCOME_MAPPING.items():
-            operation_group.attrs[name] = np.float64(vstim_code)
+        for name, vstim_outcome in BRAINBOX_OUTCOME_MAPPING.items():
+            operation_group.attrs[name] = np.float64(vstim_outcome.value)
 
     return config
