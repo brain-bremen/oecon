@@ -24,6 +24,7 @@ class StreamInfo:
 class EventStreamInfo:
     name: str
     count: int | None  # None if timestamps.npy could not be read
+    message_breakdown: dict[str, int] | None = None  # For Message Center: counts by message type
 
 
 @dataclass
@@ -91,6 +92,30 @@ def _event_count(rec_dir: str, folder_name: str) -> int | None:
         return None
 
 
+def _count_message_types(rec_dir: str, folder_name: str) -> dict[str, int] | None:
+    """Count Message Center messages by type (TRIAL_START, TRIAL_END, etc.)."""
+    text_path = os.path.join(rec_dir, "events", folder_name, "text.npy")
+    try:
+        messages = np.load(text_path, mmap_mode="r")
+        counts: dict[str, int] = {}
+
+        for msg in messages:
+            # Decode bytes to string
+            msg_str = msg.decode() if isinstance(msg, bytes) else str(msg)
+
+            # Count specific message types
+            if "TRIAL_START" in msg_str:
+                counts["TRIAL_START"] = counts.get("TRIAL_START", 0) + 1
+            elif "TRIAL_END" in msg_str:
+                counts["TRIAL_END"] = counts.get("TRIAL_END", 0) + 1
+            else:
+                counts["Other"] = counts.get("Other", 0) + 1
+
+        return counts if counts else None
+    except Exception:
+        return None
+
+
 def _inspect_recording(rec_dir: str, exp_idx: int, rec_idx: int) -> RecordingInfo:
     oebin_path = os.path.join(rec_dir, "structure.oebin")
     streams: list[StreamInfo] = []
@@ -114,14 +139,18 @@ def _inspect_recording(rec_dir: str, exp_idx: int, rec_idx: int) -> RecordingInf
                 continue
             seen.add(name)
             count = _event_count(rec_dir, ev["folder_name"])
-            event_streams.append(EventStreamInfo(name=name, count=count))
+            # For Message Center events, also count message types
+            breakdown = _count_message_types(rec_dir, ev["folder_name"]) if name == "Message Center" else None
+            event_streams.append(EventStreamInfo(name=name, count=count, message_breakdown=breakdown))
     else:
         for d in sorted(glob.glob(os.path.join(rec_dir, "events", "*"))):
             if os.path.isdir(d):
                 folder = os.path.basename(d)
                 name = ".".join(folder.split(".")[1:]) or folder  # strip node prefix
                 count = _event_count(rec_dir, folder)
-                event_streams.append(EventStreamInfo(name=name, count=count))
+                # For Message Center events, also count message types
+                breakdown = _count_message_types(rec_dir, folder) if "Message Center" in name else None
+                event_streams.append(EventStreamInfo(name=name, count=count, message_breakdown=breakdown))
 
     return RecordingInfo(
         experiment_index=exp_idx,

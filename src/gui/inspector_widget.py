@@ -163,7 +163,12 @@ class SessionInspectorWidget(QGroupBox):
                 rec_item.addChild(ev_item)
                 for ev in rec.event_streams:
                     label = f"{ev.name}  —  {ev.count} events" if ev.count is not None else ev.name
-                    ev_item.addChild(QTreeWidgetItem([label]))
+                    ev_node = QTreeWidgetItem([label])
+                    ev_item.addChild(ev_node)
+                    # Show message breakdown for Message Center events
+                    if ev.message_breakdown:
+                        for msg_type, count in ev.message_breakdown.items():
+                            ev_node.addChild(QTreeWidgetItem([f"{msg_type}: {count}"]))
 
         item.setExpanded(True)
         for i in range(item.childCount()):
