@@ -128,7 +128,7 @@ def convert_open_ephys_recording_to_dh5(
         )
 
     config_filename = Path(
-        f"{session_name}_exp{recording.experiment_index}_rec{recording.recording_index}.config.json"
+        f"{session_name}_exp{recording.experiment_index + 1}_rec{recording.recording_index + 1}.config.json"
     )
     save_config_to_file(config_filename, config)
 

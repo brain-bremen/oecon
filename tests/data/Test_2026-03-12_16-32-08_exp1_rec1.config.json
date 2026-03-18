@@ -1,36 +1,5 @@
 {
-  "raw_config": {
-    "split_channels_into_cont_blocks": true,
-    "cont_ranges": {
-      "RAW": [
-        1,
-        1600
-      ],
-      "ANALOG": [
-        1601,
-        2000
-      ],
-      "LFP": [
-        2001,
-        4000
-      ],
-      "ESA": [
-        4001,
-        6000
-      ],
-      "AP": [
-        6001,
-        8000
-      ]
-    },
-    "oe_processor_cont_group_map": {
-      "USB-6343": "ANALOG"
-    },
-    "included_channel_names": [
-      "AI0",
-      "AI2"
-    ]
-  },
+  "raw_config": null,
   "decimation_config": {
     "downsampling_factor": 30,
     "ftype": "fir",
@@ -388,17 +357,18 @@
   },
   "trialmap_config": {
     "use_message_center_messages": true,
-    "trial_start_ttl_line": null
+    "trial_start_ttl_line": null,
+    "add_brainbox_outcome_names": true
   },
   "continuous_mua_config": {
     "highpass_cutoff_hz": 300.0,
     "filter_coecfficients_b_a": {
       "b": [
-        0.9211709934999415,
-        -3.684683973999766,
-        5.527025960999649,
-        -3.684683973999766,
-        0.9211709934999415
+        0.9211709934999417,
+        -3.6846839739997668,
+        5.52702596099965,
+        -3.6846839739997668,
+        0.9211709934999417
       ],
       "a": [
         1.0,
@@ -418,5 +388,5 @@
   "output_format": "dh5",
   "n_jobs": 1,
   "config_version": 1,
-  "oecon_version": "0.1.5"
+  "oecon_version": "0.2.0.dev0"
 }

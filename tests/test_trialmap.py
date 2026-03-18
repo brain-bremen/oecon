@@ -130,7 +130,8 @@ class TestTrialmapOperation:
         assert "Date" in operation_group.attrs
         assert "Operator name" in operation_group.attrs
         assert "Tool" in operation_group.attrs
-        assert "oecon_v" in operation_group.attrs["Tool"]
+        assert "oecon.trialmap" in operation_group.attrs["Tool"]
+        assert "(v" in operation_group.attrs["Tool"]  # Check version format
 
     @patch('oecon.trialmap.get_messages_from_recording')
     def test_vstim_outcome_attributes_are_int32(self, mock_get_messages, tmp_dh5_file, mock_recording, mock_messages):

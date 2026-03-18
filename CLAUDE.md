@@ -58,11 +58,12 @@ Three event classes in `events.py`:
 
 ### Output file naming
 
-Each Open Ephys recording produces one DH5 file:
+Each Open Ephys recording produces one DH5 file and config JSON:
 ```
 <session_name>_exp<experiment_index+1>_rec<recording_index+1>.dh5
+<session_name>_exp<experiment_index+1>_rec<recording_index+1>.config.json
 ```
-Indexing is 1-based in the output filename. The config JSON uses 0-based indices (note the off-by-one between the two — this was changed in commit `0ea68b4`).
+Both use 1-based indexing in the filenames (exp1, rec1, etc.).
 
 ### Tests
 
