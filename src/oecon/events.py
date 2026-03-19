@@ -6,17 +6,13 @@ from dataclasses import dataclass
 from pydantic import BaseModel, Field
 from pathlib import Path
 
-import dh5io
-import dh5io.event_triggers
-import dh5io.operations
 import numpy as np
-from dh5io import DH5File
-from dhspec.event_triggers import EV_DATASET_NAME
 from open_ephys.analysis.formats.BinaryRecording import BinaryRecording
 from open_ephys.analysis.recording import Recording
 from vstim.network_event_codes import VStimEventCode
 
 import oecon.version
+from oecon.file_writer import FileWriter
 
 logger = logging.getLogger(__name__)
 
@@ -235,9 +231,9 @@ def find_marker_source(oeinfo: dict):
 
 
 def process_oe_events(
-    event_config: EventPreprocessingConfig, recording: Recording, dh5file: DH5File
+    event_config: EventPreprocessingConfig, recording: Recording, file_writer: FileWriter
 ):
-    logger.info(f"Processing events in {dh5file._file.filename}")
+    logger.info(f"Processing events in {file_writer.filename}")
 
     timestamps_ns = np.array([], dtype=np.int64)
     event_codes = np.array([], dtype=np.int32)
@@ -291,38 +287,31 @@ def process_oe_events(
 
     assert all(np.diff(timestamps_ns) >= 0)
 
-    dh5io.event_triggers.add_event_triggers_to_file(
-        dh5file._file, timestamps_ns=timestamps_ns, event_codes=event_codes
+    # Collect event code names
+    event_code_names: dict[str, int] = {}
+
+    if event_config.ttl_line_names is not None:
+        for event_name, event_code in event_config.ttl_line_names.items():
+            event_code_names[str(event_name)] = event_code + network_events_offset
+
+    if network_events_source is not None and event_config.network_events_code_name_map is not None:
+        logging.debug(
+            f"Adding network events code names with offset {network_events_offset}"
+        )
+        for event_name, event_code in event_config.network_events_code_name_map.items():
+            event_code_names[str(event_name)] = event_code + network_events_offset
+
+    # Write events using file writer abstraction
+    file_writer.write_event_triggers(
+        timestamps_ns=timestamps_ns,
+        event_codes=event_codes,
+        event_code_names=event_code_names if event_code_names else None,
     )
 
-    # add names of event codes as attributes to filed
-    if event_config.ttl_line_names is not None:
-        ev02_dataset = dh5file._file[EV_DATASET_NAME]
-        for event_name, event_code in event_config.ttl_line_names.items():
-            ev02_dataset.attrs[str(event_name)] = np.int32(
-                event_code + network_events_offset
-            )
-
-    if network_events_source is not None:
-        # add names of events as attributes to dataset
-        logging.debug(
-            f"Adding network events code names to dataset {EV_DATASET_NAME} with offset {network_events_offset}"
-        )
-        ev02_dataset = dh5file._file[EV_DATASET_NAME]
-        if event_config.network_events_code_name_map is not None:
-            for (
-                event_name,
-                event_code,
-            ) in event_config.network_events_code_name_map.items():
-                ev02_dataset.attrs[str(event_name)] = np.int32(
-                    event_code + network_events_offset
-                )
-
-    # add operation to dh5 file
-    dh5io.operations.add_operation_to_file(
-        file=dh5file._file,
-        new_operation_group_name="Process events",
-        tool=f"oecon.events (v{oecon.version.get_version_from_pyproject()})",
+    # Add operation using file writer abstraction
+    file_writer.add_operation(
+        operation_name="Process events",
+        tool_version=f"oecon.events (v{oecon.version.get_version_from_pyproject()})",
     )
 
     return event_config

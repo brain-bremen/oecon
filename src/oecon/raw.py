@@ -4,12 +4,9 @@ from pydantic import BaseModel, Field
 from open_ephys.analysis.recording import Continuous
 from open_ephys.analysis.recording import Recording
 from open_ephys.analysis.recording import ContinuousMetadata
-from dh5io import DH5File
-import dh5io
-import dh5io.operations
-from dhspec.cont import create_empty_index_array, create_channel_info
-from dh5io.cont import create_cont_group_from_data_in_file
+from dhspec.cont import create_channel_info
 import numpy as np
+from oecon.file_writer import FileWriter
 
 
 class RawConfig(BaseModel):
@@ -34,17 +31,13 @@ class RawConfig(BaseModel):
 
 def _create_cont_group_per_channel(
     oe_continuous: Continuous,
-    dh5file: dh5io.DH5File,
+    file_writer: FileWriter,
     metadata: ContinuousMetadata,
     start_cont_id: int,
     first_global_channel_index: int,
     included_channel_names: list[str] | None = None,
 ):
     global_channel_index = first_global_channel_index
-
-    index = create_empty_index_array(1)
-    index[0]["time"] = np.int64(oe_continuous.timestamps[0] * 1e9)
-    index[0]["offset"] = 0
 
     assert metadata.channel_names is not None, "Channel names are not set in OE data."
     for channel_index, name in enumerate(metadata.channel_names):
@@ -64,14 +57,14 @@ def _create_cont_group_per_channel(
 
         data = oe_continuous.samples[:, channel_index : channel_index + 1]
 
-        create_cont_group_from_data_in_file(
-            file=dh5file._file,
-            cont_group_id=dh5_cont_id,
+        # Write continuous data using file writer abstraction
+        file_writer.write_continuous_data(
             data=data,
-            index=index,
-            sample_period_ns=np.int32(1.0 / metadata.sample_rate * 1e9),
-            name=name,
-            channels=channel_info,
+            channel_info=channel_info,
+            sample_rate_hz=metadata.sample_rate,
+            start_time_ns=np.int64(oe_continuous.timestamps[0] * 1e9),
+            channel_name=name,
+            group_id=dh5_cont_id,
             calibration=np.array(metadata.bit_volts[channel_index]),
         )
 
@@ -80,7 +73,7 @@ def _create_cont_group_per_channel(
 
 def _create_cont_group_per_continuous_stream(
     oe_continuous: Continuous,
-    dh5file: dh5io.DH5File,
+    file_writer: FileWriter,
     metadata: ContinuousMetadata,
     start_cont_id: int,
     last_global_channel_index: int = 0,
@@ -93,7 +86,7 @@ def _create_cont_group_per_continuous_stream(
 
     # TODO: This should be an array of channel info objects, one for each channel
     # but for now, we just create one channel info object for the entire stream
-    channel_info = dh5io.cont.create_channel_info(
+    channel_info = create_channel_info(
         GlobalChanNumber=last_global_channel_index,
         BoardChanNo=0,
         ADCBitWidth=16,
@@ -119,7 +112,7 @@ def _create_cont_group_per_continuous_stream(
 
 
 def process_oe_raw_data(
-    config: RawConfig, recording: Recording, dh5file: DH5File
+    config: RawConfig, recording: Recording, file_writer: FileWriter
 ) -> RawConfig:
     assert recording.continuous is not None, (
         "No continuous data found in the recording."
@@ -143,7 +136,7 @@ def process_oe_raw_data(
         if config.split_channels_into_cont_blocks:
             _create_cont_group_per_channel(
                 oe_continuous=cont,
-                dh5file=dh5file,
+                file_writer=file_writer,
                 metadata=metadata,
                 start_cont_id=start_cont_id,
                 first_global_channel_index=global_channel_index,
@@ -153,20 +146,19 @@ def process_oe_raw_data(
         else:
             _create_cont_group_per_continuous_stream(
                 oe_continuous=cont,
-                dh5file=dh5file,
+                file_writer=file_writer,
                 metadata=metadata,
                 start_cont_id=start_cont_id,
                 included_channel_names=config.included_channel_names,
             )
 
-    # update included channesl in config
+    # update included channels in config
     config.included_channel_names = included_channel_names
 
-    # Add operation to dh5 file
-    dh5io.operations.add_operation_to_file(
-        file=dh5file._file,
-        new_operation_group_name="Write raw data",
-        tool=f"oecon.raw (v{oecon.version.get_version_from_pyproject()})",
+    # Add operation using file writer abstraction
+    file_writer.add_operation(
+        operation_name="Write raw data",
+        tool_version=f"oecon.raw (v{oecon.version.get_version_from_pyproject()})",
     )
 
     return config

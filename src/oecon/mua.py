@@ -1,20 +1,17 @@
 import logging
 from collections.abc import Callable
 
-import dh5io
-import dh5io.cont
-import dh5io.operations
 import numpy as np
 import numpy.typing as npt
 import scipy.signal as signal
-from dh5io import DH5File
-from dhspec.cont import create_channel_info, create_empty_index_array
+from dhspec.cont import create_channel_info
 from open_ephys.analysis.recording import Recording as OERecording
 from pydantic import BaseModel, Field, field_validator
 
 import oecon.default_mappings as default
 import oecon.version
 from oecon.decimation import DecimationConfig, decimate_np_array
+from oecon.file_writer import FileWriter
 
 logger = logging.getLogger(__name__)
 
@@ -58,7 +55,7 @@ def extract_continuous_mua(
     config: ContinuousMuaConfig,
     decimation_config: DecimationConfig,
     recording: OERecording,
-    dh5file: DH5File,
+    file_writer: FileWriter,
     on_channel: "Callable[[int, int], None] | None" = None,
 ) -> ContinuousMuaConfig:
     assert recording.continuous is not None, (
@@ -143,22 +140,14 @@ def extract_continuous_mua(
             decimated_samples /= scaling_factor
             decimated_samples = decimated_samples.astype(np.int16)
 
-            index = create_empty_index_array(1)
-            index[0]["time"] = np.int64(oe_cont.timestamps[0] * 1e9)
-            index[0]["offset"] = 0
-            dh5io.cont.create_cont_group_from_data_in_file(
-                file=dh5file._file,
-                cont_group_id=dh5_cont_id,
+            # Write MUA continuous data using file writer abstraction
+            file_writer.write_continuous_data(
                 data=decimated_samples,
-                index=index,
-                sample_period_ns=np.int32(
-                    1.0
-                    / oe_metadata.sample_rate
-                    * 1e9
-                    * decimation_config.downsampling_factor
-                ),
-                name=f"{oe_metadata.stream_name}/{channel_name}/MUA",
-                channels=channel_info,
+                channel_info=channel_info,
+                sample_rate_hz=oe_metadata.sample_rate / decimation_config.downsampling_factor,
+                start_time_ns=np.int64(oe_cont.timestamps[0] * 1e9),
+                channel_name=f"{oe_metadata.stream_name}/{channel_name}/MUA",
+                group_id=dh5_cont_id,
                 calibration=np.array(oe_metadata.bit_volts[channel_index]),
             )
 
@@ -168,10 +157,10 @@ def extract_continuous_mua(
             if on_channel:
                 on_channel(ch_done, total_channels)
 
-    dh5io.operations.add_operation_to_file(
-        dh5file._file,
-        "Extract continuous MUA",
-        f"oecon.mua (v{oecon.version.get_version_from_pyproject()})",
+    # Add operation using file writer abstraction
+    file_writer.add_operation(
+        operation_name="Extract continuous MUA",
+        tool_version=f"oecon.mua (v{oecon.version.get_version_from_pyproject()})",
     )
 
     return config
