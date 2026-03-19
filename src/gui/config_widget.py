@@ -272,7 +272,12 @@ class ConfigStepWidget(QWidget):
     def get_model(self) -> BaseModel | None:
         if not self._enable_cb.isChecked():
             return None
-        values = {name: _get_widget_value(w) for name, w in self._field_widgets.items()}
+        values = {}
+        for name, widget in self._field_widgets.items():
+            # Skip non-editable fields (disabled labels) - let Pydantic use defaults
+            if isinstance(widget, QLabel):
+                continue
+            values[name] = _get_widget_value(widget)
         return self._model_class(**values)
 
     def set_model(self, model: BaseModel | None) -> None:

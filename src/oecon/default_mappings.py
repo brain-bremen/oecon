@@ -9,14 +9,6 @@ class ContGroups(StrEnum):
     AP = "AP"
 
 
-DEFAULT_OE_STREAM_MAPPING = {
-    "PXIe-6341": ContGroups.RAW,
-    "PCIe-6341": ContGroups.RAW,
-    "example_data": ContGroups.RAW,
-    "Neuropix-PXI": ContGroups.RAW,
-}
-
-
 DEFAULT_CONT_GROUP_RANGES = {
     ContGroups.RAW: (
         1,

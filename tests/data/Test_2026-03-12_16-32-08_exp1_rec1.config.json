@@ -1,5 +1,33 @@
 {
-  "raw_config": null,
+  "raw_config": {
+    "split_channels_into_cont_blocks": true,
+    "cont_ranges": {
+      "RAW": [
+        1,
+        1600
+      ],
+      "ANALOG": [
+        1601,
+        2000
+      ],
+      "LFP": [
+        2001,
+        4000
+      ],
+      "ESA": [
+        4001,
+        6000
+      ],
+      "AP": [
+        6001,
+        8000
+      ]
+    },
+    "included_channel_names": [
+      "AI0",
+      "AI2"
+    ]
+  },
   "decimation_config": {
     "downsampling_factor": 30,
     "ftype": "fir",
@@ -358,7 +386,7 @@
   "trialmap_config": {
     "use_message_center_messages": true,
     "trial_start_ttl_line": null,
-    "add_brainbox_outcome_names": true
+    "add_brainbox_outcome_names": false
   },
   "continuous_mua_config": {
     "highpass_cutoff_hz": 300.0,

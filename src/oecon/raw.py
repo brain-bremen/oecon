@@ -13,6 +13,8 @@ import numpy as np
 
 
 class RawConfig(BaseModel):
+    model_config = {"extra": "ignore"}  # Ignore extra fields for backward compatibility
+
     split_channels_into_cont_blocks: bool = Field(
         default=True,
         title="Split channels into CONT blocks",
@@ -22,11 +24,6 @@ class RawConfig(BaseModel):
         default_factory=lambda: default.DEFAULT_CONT_GROUP_RANGES.copy(),
         title="CONT block ranges",
         description="DH5 CONT block ID ranges per channel group",
-    )
-    oe_processor_cont_group_map: dict[str, default.ContGroups] = Field(
-        default_factory=lambda: default.DEFAULT_OE_STREAM_MAPPING.copy(),
-        title="OE stream → CONT group map",
-        description="Mapping from Open Ephys stream name to DH5 CONT group",
     )
     included_channel_names: list[str] | None = Field(
         default=None,
@@ -137,14 +134,8 @@ def process_oe_raw_data(
         if config.included_channel_names is None and metadata.channel_names is not None:
             included_channel_names.extend(metadata.channel_names)
 
-        cont_group: default.ContGroups | None = config.oe_processor_cont_group_map.get(
-            metadata.stream_name
-        )
-        if cont_group is None:
-            raise ValueError(
-                f"Unknown continuous stream name: {metadata.stream_name}. "
-                f"Available stream names are {(config.oe_processor_cont_group_map.keys())}."
-            )
+        # All continuous streams go to RAW
+        cont_group = default.ContGroups.RAW
         group_range_start_index: int = config.cont_ranges[cont_group][0]
         start_cont_id = global_channel_index + group_range_start_index
 
