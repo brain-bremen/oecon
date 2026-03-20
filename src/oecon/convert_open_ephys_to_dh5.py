@@ -8,7 +8,7 @@ from open_ephys.analysis.session import Session
 from oecon.config import (
     DecimationConfig,
     EventPreprocessingConfig,
-    OpenEphysToDhConfig,
+    OpenEphysConversionConfig,
     RawConfig,
     TrialMapConfig,
     ContinuousMuaConfig,
@@ -35,7 +35,7 @@ logger = logging.getLogger(__name__)
 def convert_open_ephys_recording_to_dh5(
     recording: Recording,
     session_name: str,
-    config: OpenEphysToDhConfig | None = None,
+    config: OpenEphysConversionConfig | None = None,
     on_progress: Callable[[str, int, int], None] | None = None,
 ):
     assert recording.continuous is not None, (
@@ -53,7 +53,7 @@ def convert_open_ephys_recording_to_dh5(
     ]
 
     if config is None:
-        config = OpenEphysToDhConfig(
+        config = OpenEphysConversionConfig(
             raw_config=None,  # RawConfig(split_channels_into_cont_blocks=True),
             decimation_config=DecimationConfig(),
             event_config=EventPreprocessingConfig(network_events_offset=1000),
@@ -154,7 +154,7 @@ def convert_open_ephys_recording_to_dh5(
 def convert_open_ephys_session(
     session_path: Path,
     output_folder: Path | None = None,
-    config: OpenEphysToDhConfig | None = None,
+    config: OpenEphysConversionConfig | None = None,
     on_progress: Callable[[str, int, int], None] | None = None,
 ) -> None:
     """Convert all recordings in a single Open Ephys session to DH5."""
@@ -175,7 +175,7 @@ def convert_open_ephys_session(
 def convert_open_ephys_sessions(
     session_paths: list[Path],
     output_folder: Path | None = None,
-    config: OpenEphysToDhConfig | None = None,
+    config: OpenEphysConversionConfig | None = None,
 ) -> None:
     """Convert all recordings across multiple Open Ephys sessions to DH5."""
     for session_path in session_paths:

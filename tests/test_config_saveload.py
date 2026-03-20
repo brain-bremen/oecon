@@ -6,7 +6,7 @@ import json
 
 
 from oecon.config import (
-    OpenEphysToDhConfig,
+    OpenEphysConversionConfig,
     RawConfig,
     DecimationConfig,
     EventPreprocessingConfig,
@@ -20,7 +20,7 @@ from oecon.mua import ContinuousMuaConfig
 
 
 def make_sample_config():
-    return OpenEphysToDhConfig(
+    return OpenEphysConversionConfig(
         raw_config=RawConfig(),
         decimation_config=DecimationConfig(),
         event_config=EventPreprocessingConfig(),
@@ -61,7 +61,7 @@ def test_load_config_file_not_found():
 
 
 def test_save_and_load_config_with_none_fields():
-    config = OpenEphysToDhConfig(
+    config = OpenEphysConversionConfig(
         raw_config=None,
         decimation_config=None,
         event_config=None,

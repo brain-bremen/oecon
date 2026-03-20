@@ -34,10 +34,6 @@ class DH5OutputOptions(BaseModel):
         default=True,
         description="Validate DH5 structure after creation",
     )
-    compression: str | None = Field(
-        default=None,
-        description="HDF5 compression algorithm (e.g., 'gzip', 'lzf')",
-    )
     add_brainbox_outcome_names: bool = Field(
         default=False,
         title="Add BrainBox Outcome Names",
@@ -65,17 +61,13 @@ class NWBOutputOptions(BaseModel):
         default="Open Ephys recording",
         description="Description of the recording session",
     )
-    use_lfp_extension: bool = Field(
-        default=True,
-        description="Use ndx-lfp extension for LFP data",
-    )
     electrode_metadata: dict[str, Any] | None = Field(
         default=None,
         description="Additional electrode metadata",
     )
 
 
-class OpenEphysToDhConfig(BaseModel):
+class OpenEphysConversionConfig(BaseModel):
     # Processing configurations (format-agnostic)
     raw_config: RawConfig | None = None
     decimation_config: DecimationConfig | None = None
@@ -107,20 +99,20 @@ class OpenEphysToDhConfig(BaseModel):
     )
 
     @model_validator(mode="after")
-    def set_oecon_version(self) -> "OpenEphysToDhConfig":
+    def set_oecon_version(self) -> "OpenEphysConversionConfig":
         self.oecon_version = __import__(
             "oecon.version"
         ).version.get_version_from_pyproject()
         return self
 
 
-def save_config_to_file(config_filename: PathLike, config: OpenEphysToDhConfig) -> None:
+def save_config_to_file(config_filename: PathLike, config: OpenEphysConversionConfig) -> None:
     logger.info(f"Saving configration to {config_filename}")
     with open(config_filename, mode="w") as config_file:
         config_file.write(config.model_dump_json(indent=2))
 
 
-def load_config_from_file(config_path: PathLike) -> OpenEphysToDhConfig:
+def load_config_from_file(config_path: PathLike) -> OpenEphysConversionConfig:
     if not os.path.exists(config_path):
         raise FileNotFoundError(f"Configuration file not found: {config_path}")
 
@@ -139,4 +131,4 @@ def load_config_from_file(config_path: PathLike) -> OpenEphysToDhConfig:
             f"Configuration file version {config_data['config_version']} is newer than supported version {VERSION}."
         )
 
-    return OpenEphysToDhConfig.model_validate(config_data)
+    return OpenEphysConversionConfig.model_validate(config_data)

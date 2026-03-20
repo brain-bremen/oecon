@@ -15,7 +15,7 @@ from PySide6.QtWidgets import (
 
 from oecon.config import (
     ContinuousMuaConfig, DecimationConfig, EventPreprocessingConfig,
-    OpenEphysToDhConfig, OutputFormat, RawConfig, SpikeConfig,
+    OpenEphysConversionConfig, OutputFormat, RawConfig, SpikeConfig,
     TrialMapConfig, load_config_from_file, save_config_to_file,
 )
 from oecon import convert_open_ephys_session
@@ -29,7 +29,7 @@ from gui.settings import (
     set_last_config_path, set_last_session_dir, pick_session_dirs,
 )
 
-# (tab label, OpenEphysToDhConfig field name, model class, enabled by default)
+# (tab label, OpenEphysConversionConfig field name, model_class, enabled by default)
 _TAB_CONFIGS = [
     ("Raw",       "raw_config",            RawConfig,                False),
     ("Events",    "event_config",          EventPreprocessingConfig, True),
@@ -76,7 +76,7 @@ class _ConversionWorker(QThread):
         self,
         session_paths: list[Path],
         output_folder: Path | None,
-        config: OpenEphysToDhConfig,
+        config: OpenEphysConversionConfig,
         parent=None,
     ):
         super().__init__(parent)
@@ -280,16 +280,16 @@ class MainWindow(QMainWindow):
     # Config build / load / save
     # ------------------------------------------------------------------
 
-    def _build_config(self) -> OpenEphysToDhConfig:
+    def _build_config(self) -> OpenEphysConversionConfig:
         kwargs: dict = {
             field_name: self._tab_widgets[field_name].get_model()
             for _, field_name, _, _ in _TAB_CONFIGS
         }
         kwargs["output_format"] = self._format_combo.currentData()
         kwargs["n_jobs"] = self._n_jobs_spin.value()
-        return OpenEphysToDhConfig(**kwargs)
+        return OpenEphysConversionConfig(**kwargs)
 
-    def _apply_config(self, config: OpenEphysToDhConfig) -> None:
+    def _apply_config(self, config: OpenEphysConversionConfig) -> None:
         for _, field_name, _, _ in _TAB_CONFIGS:
             self._tab_widgets[field_name].set_model(getattr(config, field_name, None))
         for i in range(self._format_combo.count()):

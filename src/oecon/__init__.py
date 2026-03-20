@@ -3,12 +3,12 @@ from oecon.convert_open_ephys_to_dh5 import (
     convert_open_ephys_session,
     convert_open_ephys_sessions,
 )
-from oecon.config import OpenEphysToDhConfig
+from oecon.config import OpenEphysConversionConfig
 
 
 __all__ = [
     "convert_open_ephys_recording_to_dh5",
     "convert_open_ephys_session",
     "convert_open_ephys_sessions",
-    "OpenEphysToDhConfig",
+    "OpenEphysConversionConfig",
 ]
