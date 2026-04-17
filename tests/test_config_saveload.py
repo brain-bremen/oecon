@@ -6,7 +6,7 @@ import json
 
 
 from oecon.config import (
-    OpenEphysToDhConfig,
+    OpenEphysConversionConfig,
     RawConfig,
     DecimationConfig,
     EventPreprocessingConfig,
@@ -20,7 +20,7 @@ from oecon.mua import ContinuousMuaConfig
 
 
 def make_sample_config():
-    return OpenEphysToDhConfig(
+    return OpenEphysConversionConfig(
         raw_config=RawConfig(),
         decimation_config=DecimationConfig(),
         event_config=EventPreprocessingConfig(),
@@ -61,7 +61,7 @@ def test_load_config_file_not_found():
 
 
 def test_save_and_load_config_with_none_fields():
-    config = OpenEphysToDhConfig(
+    config = OpenEphysConversionConfig(
         raw_config=None,
         decimation_config=None,
         event_config=None,
@@ -97,3 +97,40 @@ def test_load_config_with_newer_version(tmp_path):
     with pytest.raises(ValueError) as excinfo:
         config_mod.load_config_from_file(config_path)
     assert "newer than supported version" in str(excinfo.value)
+
+
+def test_old_config_with_stream_mapping_is_ignored(tmp_path):
+    """Verify old configs with oe_processor_cont_group_map still load (field ignored)"""
+    # Create a config dict with the old oe_processor_cont_group_map field
+    config_data = {
+        "raw_config": {
+            "split_channels_into_cont_blocks": True,
+            "cont_ranges": {
+                "RAW": [1, 1600],
+                "ANALOG": [1601, 2000],
+                "LFP": [2001, 4000],
+                "ESA": [4001, 6000],
+                "AP": [6001, 8000],
+            },
+            "oe_processor_cont_group_map": {
+                "PXIe-6341": "RAW",
+                "USB-6343": "RAW",
+            },
+            "included_channel_names": None,
+        },
+        "decimation_config": None,
+        "event_config": None,
+        "trialmap_config": None,
+        "continuous_mua_config": None,
+        "config_version": VERSION,
+    }
+    config_path = tmp_path / "old_config.json"
+    with open(config_path, "w") as f:
+        json.dump(config_data, f)
+
+    # Should load successfully (extra field ignored via model_config)
+    loaded_config = load_config_from_file(config_path)
+    assert loaded_config.raw_config is not None
+    assert loaded_config.raw_config.split_channels_into_cont_blocks is True
+    # The old field should not be present in the loaded config
+    assert not hasattr(loaded_config.raw_config, "oe_processor_cont_group_map")

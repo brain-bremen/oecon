@@ -1,6 +1,7 @@
 import logging
 import re
 import sys
+import threading
 from pathlib import Path
 
 from pydantic import ValidationError
@@ -15,10 +16,11 @@ from PySide6.QtWidgets import (
 
 from oecon.config import (
     ContinuousMuaConfig, DecimationConfig, EventPreprocessingConfig,
-    OpenEphysToDhConfig, OutputFormat, RawConfig, SpikeConfig,
+    OpenEphysConversionConfig, OutputFormat, RawConfig,
     TrialMapConfig, load_config_from_file, save_config_to_file,
 )
 from oecon import convert_open_ephys_session
+from oecon.convert_open_ephys_to_dh5 import get_output_paths
 from oecon.version import get_version_from_pyproject
 from oecon.inspect import validate_session_path
 
@@ -28,16 +30,19 @@ from gui.settings import (
     get_last_config_path, get_last_session_dir,
     set_last_config_path, set_last_session_dir, pick_session_dirs,
 )
+from gui.widgets import ChannelPickerWidget
 
-# (tab label, OpenEphysToDhConfig field name, model class, enabled by default)
+# (tab label, OpenEphysConversionConfig field name, model_class, enabled by default)
 _TAB_CONFIGS = [
-    ("Raw",       "raw_config",            RawConfig,                False),
-    ("Events",    "event_config",          EventPreprocessingConfig, True),
-    ("Trial Map", "trialmap_config",       TrialMapConfig,           True),
-    ("LFP",       "decimation_config",     DecimationConfig,         True),
-    ("MUA",       "continuous_mua_config", ContinuousMuaConfig,      True),
-    ("Spikes",        "spike_config",          SpikeConfig,             False),
+    ("Ra&w",       "raw_config",            RawConfig,                False),
+    ("E&vents",    "event_config",          EventPreprocessingConfig, True),
+    ("&Trial Map", "trialmap_config",       TrialMapConfig,           True),
+    ("L&FP",       "decimation_config",     DecimationConfig,         True),
+    ("M&UA",       "continuous_mua_config", ContinuousMuaConfig,      True),
 ]
+
+_EVENTS_EXCLUDED = {"network_events_code_name_map", "ttl_line_names"}
+_RAW_EXCLUDED = {"cont_ranges"}
 
 
 def _format_validation_error(exc: ValidationError) -> str:
@@ -65,41 +70,89 @@ class _QtLogHandler(logging.Handler):
             pass
 
 
+class _CancelledError(Exception):
+    pass
+
+
 class _ConversionWorker(QThread):
     log_message: Signal = Signal(str)
     step_progress: Signal = Signal(str, int, int)   # step_name, done, total
     session_progress: Signal = Signal(int, int)     # done, total
-    finished: Signal = Signal()
+    succeeded: Signal = Signal()
+    cancelled: Signal = Signal()
     error: Signal = Signal(str)
+    conflict: Signal = Signal(list)                 # list of existing Path strings
 
     def __init__(
         self,
         session_paths: list[Path],
         output_folder: Path | None,
-        config: OpenEphysToDhConfig,
+        config: OpenEphysConversionConfig,
         parent=None,
     ):
         super().__init__(parent)
         self._session_paths = session_paths
         self._output_folder = output_folder
         self._config = config
+        self._conflict_event = threading.Event()
+        self._conflict_action: str = "replace"
+        self._replace_all = False
+        self._skip_all = False
+
+    def resolve_conflict(self, action: str) -> None:
+        """Called from the main thread with 'replace', 'skip', or 'replace_all'."""
+        self._conflict_action = action
+        self._conflict_event.set()
 
     def run(self) -> None:
         handler = _QtLogHandler(self.log_message)
         root_logger = logging.getLogger()
         root_logger.addHandler(handler)
         n = len(self._session_paths)
+
+        def on_progress(name: str, done: int, total: int) -> None:
+            if self.isInterruptionRequested():
+                raise _CancelledError()
+            self.step_progress.emit(name, done, total)
+
         try:
             for i, session_path in enumerate(self._session_paths):
+                if self.isInterruptionRequested():
+                    raise _CancelledError()
+
+                if not self._replace_all:
+                    existing = [
+                        str(p) for p in get_output_paths(
+                            session_path, self._output_folder, self._config.output_format
+                        )
+                        if p.exists()
+                    ]
+                    if existing:
+                        if self._skip_all:
+                            self.session_progress.emit(i + 1, n)
+                            continue
+                        self._conflict_event.clear()
+                        self.conflict.emit(existing)
+                        self._conflict_event.wait()
+                        if self._conflict_action in ("skip", "skip_all"):
+                            if self._conflict_action == "skip_all":
+                                self._skip_all = True
+                            self.session_progress.emit(i + 1, n)
+                            continue
+                        if self._conflict_action == "replace_all":
+                            self._replace_all = True
+
                 self.session_progress.emit(i, n)
                 convert_open_ephys_session(
                     session_path,
                     output_folder=self._output_folder,
                     config=self._config,
-                    on_progress=lambda name, done, total: self.step_progress.emit(name, done, total),
+                    on_progress=on_progress,
                 )
                 self.session_progress.emit(i + 1, n)
-            self.finished.emit()
+            self.succeeded.emit()
+        except _CancelledError:
+            self.cancelled.emit()
         except Exception as exc:
             self.error.emit(str(exc))
         finally:
@@ -109,7 +162,7 @@ class _ConversionWorker(QThread):
 class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
-        self.setWindowTitle(f"OEcon {get_version_from_pyproject()}")
+        self.setWindowTitle(f"oecon {get_version_from_pyproject()}")
         self.setMinimumSize(720, 680)
         self._worker: _ConversionWorker | None = None
         self._setup_ui()
@@ -126,12 +179,13 @@ class MainWindow(QMainWindow):
         root.setSpacing(8)
 
         # --- Input ---
-        add_btn = QPushButton("Add…")
+        add_btn = QPushButton("&Add…")
         add_btn.clicked.connect(self._pick_session)
-        remove_btn = QPushButton("Remove")
+        remove_btn = QPushButton("Re&move")
         remove_btn.clicked.connect(self._remove_session)
         self._inspector = SessionInspectorWidget(buttons=[add_btn, remove_btn])
         self._inspector.setTitle("Input — Open Ephys Sessions")
+        self._inspector.channels_changed.connect(self._on_channels_changed)
         root.addWidget(self._inspector)
 
         # --- Output ---
@@ -141,7 +195,7 @@ class MainWindow(QMainWindow):
 
         self._output_edit = QLineEdit()
         self._output_edit.setPlaceholderText("Defaults to session parent folder")
-        self._output_btn = QPushButton("Browse")
+        self._output_btn = QPushButton("&Browse")
         self._output_btn.clicked.connect(self._pick_output)
         output_row = QHBoxLayout()
         output_row.addWidget(self._output_edit)
@@ -169,17 +223,39 @@ class MainWindow(QMainWindow):
         config_layout = QVBoxLayout(config_group)
         config_layout.setContentsMargins(6, 6, 6, 6)
 
+        self._channel_pickers: dict[str, ChannelPickerWidget] = {
+            "raw_config": ChannelPickerWidget(),
+            "decimation_config": ChannelPickerWidget(),
+            "continuous_mua_config": ChannelPickerWidget(),
+        }
+
         self._tabs = QTabWidget()
         self._tab_widgets: dict[str, ConfigStepWidget] = {}
         for tab_name, field_name, model_class, enabled in _TAB_CONFIGS:
-            widget = ConfigStepWidget(model_class, enabled_by_default=enabled)
+            excluded: set[str] = set()
+            overrides: dict = {}
+            if field_name == "raw_config":
+                excluded = _RAW_EXCLUDED
+                overrides = {"included_channel_names": self._channel_pickers["raw_config"]}
+            elif field_name == "event_config":
+                excluded = _EVENTS_EXCLUDED
+            elif field_name == "decimation_config":
+                overrides = {"included_channel_names": self._channel_pickers["decimation_config"]}
+            elif field_name == "continuous_mua_config":
+                overrides = {"included_channel_names": self._channel_pickers["continuous_mua_config"]}
+            widget = ConfigStepWidget(
+                model_class,
+                enabled_by_default=enabled,
+                excluded_fields=excluded,
+                field_overrides=overrides,
+            )
             self._tab_widgets[field_name] = widget
             self._tabs.addTab(widget, tab_name)
 
         btn_row = QHBoxLayout()
-        load_btn = QPushButton("Load Config")
+        load_btn = QPushButton("&Load Config")
         load_btn.clicked.connect(self._load_config)
-        save_btn = QPushButton("Save Config")
+        save_btn = QPushButton("&Save Config")
         save_btn.clicked.connect(self._save_config)
         btn_row.addWidget(load_btn)
         btn_row.addWidget(save_btn)
@@ -210,19 +286,19 @@ class MainWindow(QMainWindow):
         session_row.addWidget(self._session_bar, stretch=1)
         bars_layout.addLayout(session_row)
 
-        self._step_label = QLabel("—")
+        self._step_label = QLabel("Steps")
         self._step_label.setFixedWidth(label_width)
         self._step_bar = QProgressBar()
         self._step_bar.setTextVisible(True)
         self._step_bar.setRange(0, 0)
         self._step_bar.setValue(0)
-        self._step_bar.setFormat("0/0")
+        self._step_bar.setFormat("—")
         step_row = QHBoxLayout()
         step_row.addWidget(self._step_label)
         step_row.addWidget(self._step_bar, stretch=1)
         bars_layout.addLayout(step_row)
 
-        self._run_btn = QPushButton("▶  Run")
+        self._run_btn = QPushButton("▶  &Run")
         self._run_btn.setDefault(True)
         self._run_btn.clicked.connect(self._run)
 
@@ -246,6 +322,11 @@ class MainWindow(QMainWindow):
     # ------------------------------------------------------------------
     # Path pickers
     # ------------------------------------------------------------------
+
+    def _on_channels_changed(self) -> None:
+        channels = self._inspector.all_channel_names()
+        for picker in self._channel_pickers.values():
+            picker.set_available_channels(channels)
 
     def _pick_session(self) -> None:
         paths = pick_session_dirs(self, initial=get_last_session_dir() or "")
@@ -280,16 +361,16 @@ class MainWindow(QMainWindow):
     # Config build / load / save
     # ------------------------------------------------------------------
 
-    def _build_config(self) -> OpenEphysToDhConfig:
+    def _build_config(self) -> OpenEphysConversionConfig:
         kwargs: dict = {
             field_name: self._tab_widgets[field_name].get_model()
             for _, field_name, _, _ in _TAB_CONFIGS
         }
         kwargs["output_format"] = self._format_combo.currentData()
         kwargs["n_jobs"] = self._n_jobs_spin.value()
-        return OpenEphysToDhConfig(**kwargs)
+        return OpenEphysConversionConfig(**kwargs)
 
-    def _apply_config(self, config: OpenEphysToDhConfig) -> None:
+    def _apply_config(self, config: OpenEphysConversionConfig) -> None:
         for _, field_name, _, _ in _TAB_CONFIGS:
             self._tab_widgets[field_name].set_model(getattr(config, field_name, None))
         for i in range(self._format_combo.count()):
@@ -352,12 +433,12 @@ class MainWindow(QMainWindow):
 
         self._log_edit.clear()
         self._set_inputs_enabled(False)
+        self._set_run_mode(True)
 
         n = len(session_paths)
         self._step_bar.setRange(0, 1)
         self._step_bar.setValue(0)
-        self._step_bar.setFormat("0/1")
-        self._step_label.setText("—")
+        self._step_bar.setFormat("—")
         self._session_bar.setRange(0, n)
         self._session_bar.setValue(0)
         self._session_bar.setFormat(f"0/{n}")
@@ -366,8 +447,10 @@ class MainWindow(QMainWindow):
         self._worker.log_message.connect(self._append_log)
         self._worker.step_progress.connect(self._on_step_progress)
         self._worker.session_progress.connect(self._on_session_progress)
-        self._worker.finished.connect(self._on_finished)
+        self._worker.succeeded.connect(self._on_finished)
+        self._worker.cancelled.connect(self._on_cancelled)
         self._worker.error.connect(self._on_error)
+        self._worker.conflict.connect(self._on_conflict)
         self._worker.start()
 
     def _append_log(self, msg: str) -> None:
@@ -379,25 +462,70 @@ class MainWindow(QMainWindow):
         self._output_btn.setEnabled(enabled)
         self._format_combo.setEnabled(enabled)
         self._tabs.setEnabled(enabled)
-        self._run_btn.setEnabled(enabled)
+
+    def _set_run_mode(self, running: bool) -> None:
+        if running:
+            self._run_btn.setText("■  &Cancel")
+            self._run_btn.clicked.disconnect(self._run)
+            self._run_btn.clicked.connect(self._cancel)
+        else:
+            self._run_btn.setText("▶  &Run")
+            self._run_btn.setEnabled(True)
+            self._run_btn.clicked.disconnect(self._cancel)
+            self._run_btn.clicked.connect(self._run)
+
+    def _cancel(self) -> None:
+        if self._worker:
+            self._worker.requestInterruption()
+            self._run_btn.setEnabled(False)
+            self._run_btn.setText("Cancelling…")
 
     def _on_step_progress(self, step_name: str, done: int, total: int) -> None:
         self._step_bar.setRange(0, total)
         self._step_bar.setValue(done)
-        self._step_label.setText(step_name)
-        self._step_bar.setFormat(f"{done}/{total}")
+        self._step_bar.setFormat(f"{step_name}  {done}/{total}")
 
     def _on_session_progress(self, done: int, total: int) -> None:
         self._session_bar.setValue(done)
         self._session_bar.setFormat(f"{done}/{total}")
 
+    def _on_conflict(self, existing: list) -> None:
+        names = "\n".join(f"  • {Path(p).name}" for p in existing)
+        msg = QMessageBox(self)
+        msg.setWindowTitle("Output file(s) already exist")
+        msg.setText(f"The following file(s) will be overwritten:\n\n{names}")
+        replace_btn = msg.addButton("&Replace this session", QMessageBox.ButtonRole.AcceptRole)
+        skip_btn = msg.addButton("&Skip this session", QMessageBox.ButtonRole.RejectRole)
+        replace_all_btn = msg.addButton("Replace &all", QMessageBox.ButtonRole.AcceptRole)
+        skip_all_btn = msg.addButton("Skip all e&xisting", QMessageBox.ButtonRole.RejectRole)
+        msg.exec()
+        clicked = msg.clickedButton()
+        if clicked is replace_all_btn:
+            action = "replace_all"
+        elif clicked is skip_all_btn:
+            action = "skip_all"
+        elif clicked is skip_btn:
+            action = "skip"
+        else:
+            action = "replace"
+        if self._worker:
+            self._worker.resolve_conflict(action)
+
     def _on_finished(self) -> None:
+        self._set_run_mode(False)
         self._set_inputs_enabled(True)
-        self._step_label.setText("—")
+        self._step_bar.setFormat("—")
         self._append_log("--- Conversion complete ---")
 
-    def _on_error(self, msg: str) -> None:
+    def _on_cancelled(self) -> None:
+        self._set_run_mode(False)
         self._set_inputs_enabled(True)
-        self._step_label.setText("—")
+        self._step_bar.setFormat("—")
+        self._append_log("--- Conversion cancelled ---")
+
+    def _on_error(self, msg: str) -> None:
+        self._set_run_mode(False)
+        self._set_inputs_enabled(True)
+        self._step_bar.setFormat("—")
         self._append_log(f"ERROR: {msg}")
         QMessageBox.critical(self, "Conversion failed", msg)

@@ -1,19 +1,20 @@
 [project]
-name = "OEcon"
-version = "0.2.0-dev"
+name = "oecon"
+version = "0.2.1"
 description = "Python tools to convert and preprocess OpenEphys data to the DAQ-HDF5 (dh5) format"
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
-    "dh5io",
+    "dh5io>=0.4.1",
     "open-ephys-python-tools",
     "scipy>=1.15.2",
     "numpy>2.0",
-    "vstim-python-tools",
+    "vstim>=0.1.0",
     "psutil>=7.2.2",
     "pydantic>=2.0",
     "pyside6>=6.7",
     "tqdm>=4.67.3",
+    "comtypes>=1.4.0; sys_platform == 'win32'",
 ]
 
 [build-system]
@@ -22,9 +23,6 @@ build-backend = "setuptools.build_meta"
 
 [tool.uv]
 package = true
-
-[tool.uv.sources]
-vstim-python-tools = { git = "https://github.com/brain-bremen/vstim-python-tools.git" }
 
 
 [dependency-groups]

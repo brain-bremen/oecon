@@ -1,16 +1,17 @@
 import oecon.default_mappings as default
+import oecon.version
 from pydantic import BaseModel, Field
 from open_ephys.analysis.recording import Continuous
 from open_ephys.analysis.recording import Recording
 from open_ephys.analysis.recording import ContinuousMetadata
-from dh5io import DH5File
-import dh5io
-from dhspec.cont import create_empty_index_array, create_channel_info
-from dh5io.cont import create_cont_group_from_data_in_file
+from dhspec.cont import create_channel_info
 import numpy as np
+from oecon.file_writer import FileWriter
 
 
 class RawConfig(BaseModel):
+    model_config = {"extra": "ignore"}  # Ignore extra fields for backward compatibility
+
     split_channels_into_cont_blocks: bool = Field(
         default=True,
         title="Split channels into CONT blocks",
@@ -21,11 +22,6 @@ class RawConfig(BaseModel):
         title="CONT block ranges",
         description="DH5 CONT block ID ranges per channel group",
     )
-    oe_processor_cont_group_map: dict[str, default.ContGroups] = Field(
-        default_factory=lambda: default.DEFAULT_OE_STREAM_MAPPING.copy(),
-        title="OE stream → CONT group map",
-        description="Mapping from Open Ephys stream name to DH5 CONT group",
-    )
     included_channel_names: list[str] | None = Field(
         default=None,
         title="Included channels",
@@ -35,17 +31,13 @@ class RawConfig(BaseModel):
 
 def _create_cont_group_per_channel(
     oe_continuous: Continuous,
-    dh5file: dh5io.DH5File,
+    file_writer: FileWriter,
     metadata: ContinuousMetadata,
     start_cont_id: int,
     first_global_channel_index: int,
     included_channel_names: list[str] | None = None,
 ):
     global_channel_index = first_global_channel_index
-
-    index = create_empty_index_array(1)
-    index[0]["time"] = np.int64(oe_continuous.timestamps[0] * 1e9)
-    index[0]["offset"] = 0
 
     assert metadata.channel_names is not None, "Channel names are not set in OE data."
     for channel_index, name in enumerate(metadata.channel_names):
@@ -65,14 +57,14 @@ def _create_cont_group_per_channel(
 
         data = oe_continuous.samples[:, channel_index : channel_index + 1]
 
-        create_cont_group_from_data_in_file(
-            file=dh5file._file,
-            cont_group_id=dh5_cont_id,
+        # Write continuous data using file writer abstraction
+        file_writer.write_continuous_data(
             data=data,
-            index=index,
-            sample_period_ns=np.int32(1.0 / metadata.sample_rate * 1e9),
-            name=name,
-            channels=channel_info,
+            channel_info=channel_info,
+            sample_rate_hz=metadata.sample_rate,
+            start_time_ns=np.int64(oe_continuous.timestamps[0] * 1e9),
+            channel_name=name,
+            group_id=dh5_cont_id,
             calibration=np.array(metadata.bit_volts[channel_index]),
         )
 
@@ -81,7 +73,7 @@ def _create_cont_group_per_channel(
 
 def _create_cont_group_per_continuous_stream(
     oe_continuous: Continuous,
-    dh5file: dh5io.DH5File,
+    file_writer: FileWriter,
     metadata: ContinuousMetadata,
     start_cont_id: int,
     last_global_channel_index: int = 0,
@@ -94,7 +86,7 @@ def _create_cont_group_per_continuous_stream(
 
     # TODO: This should be an array of channel info objects, one for each channel
     # but for now, we just create one channel info object for the entire stream
-    channel_info = dh5io.cont.create_channel_info(
+    channel_info = create_channel_info(
         GlobalChanNumber=last_global_channel_index,
         BoardChanNo=0,
         ADCBitWidth=16,
@@ -120,7 +112,7 @@ def _create_cont_group_per_continuous_stream(
 
 
 def process_oe_raw_data(
-    config: RawConfig, recording: Recording, dh5file: DH5File
+    config: RawConfig, recording: Recording, file_writer: FileWriter
 ) -> RawConfig:
     assert recording.continuous is not None, (
         "No continuous data found in the recording."
@@ -135,14 +127,8 @@ def process_oe_raw_data(
         if config.included_channel_names is None and metadata.channel_names is not None:
             included_channel_names.extend(metadata.channel_names)
 
-        cont_group: default.ContGroups | None = config.oe_processor_cont_group_map.get(
-            metadata.stream_name
-        )
-        if cont_group is None:
-            raise ValueError(
-                f"Unknown continuous stream name: {metadata.stream_name}. "
-                f"Available stream names are {(config.oe_processor_cont_group_map.keys())}."
-            )
+        # All continuous streams go to RAW
+        cont_group = default.ContGroups.RAW
         group_range_start_index: int = config.cont_ranges[cont_group][0]
         start_cont_id = global_channel_index + group_range_start_index
 
@@ -150,7 +136,7 @@ def process_oe_raw_data(
         if config.split_channels_into_cont_blocks:
             _create_cont_group_per_channel(
                 oe_continuous=cont,
-                dh5file=dh5file,
+                file_writer=file_writer,
                 metadata=metadata,
                 start_cont_id=start_cont_id,
                 first_global_channel_index=global_channel_index,
@@ -160,13 +146,19 @@ def process_oe_raw_data(
         else:
             _create_cont_group_per_continuous_stream(
                 oe_continuous=cont,
-                dh5file=dh5file,
+                file_writer=file_writer,
                 metadata=metadata,
                 start_cont_id=start_cont_id,
                 included_channel_names=config.included_channel_names,
             )
 
-    # update included channesl in config
+    # update included channels in config
     config.included_channel_names = included_channel_names
+
+    # Add operation using file writer abstraction
+    file_writer.add_operation(
+        operation_name="Write raw data",
+        tool_version=f"oecon.raw (v{oecon.version.get_version_from_pyproject()})",
+    )
 
     return config

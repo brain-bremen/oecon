@@ -2,7 +2,7 @@ from conftest import skip_if_no_data
 
 N_CHANNELS = 2
 N_SAMPLES = 1_774_200
-RAW_CONT_IDS = [1601, 1602]
+RAW_CONT_IDS = [1, 2]  # Raw data now goes to RAW range (1-1600), not ANALOG range
 
 
 @skip_if_no_data

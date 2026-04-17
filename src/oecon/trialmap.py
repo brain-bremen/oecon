@@ -1,25 +1,26 @@
+import logging
 import warnings
 from dataclasses import dataclass
 from enum import StrEnum
-from pydantic import BaseModel, Field
 from typing import Callable
-import dhspec
+
 import dhspec.trialmap
-import dh5io
 import numpy as np
-from dh5io import DH5File
-import dh5io.trialmap
-from open_ephys.analysis.recording import Recording
 from open_ephys.analysis.formats.BinaryRecording import BinaryRecording
+from open_ephys.analysis.recording import Recording
+from pydantic import BaseModel, Field
 from vstim.tdr import TrialOutcome
 
+import oecon.version
 from oecon.events import EventMetadata, Messages, event_from_eventfolder
-import logging
+from oecon.file_writer import FileWriter
 
 logger = logging.getLogger(__name__)
 
 
 class TrialMapConfig(BaseModel):
+    model_config = {"extra": "ignore"}  # Ignore extra fields for backward compatibility
+
     use_message_center_messages: bool = Field(
         default=True,
         title="Use Message Center",
@@ -216,7 +217,9 @@ def get_messages_from_recording(recording: Recording) -> Messages:
     return messages
 
 
-def process_oe_trialmap(config: TrialMapConfig, recording: Recording, dh5file: DH5File):
+def process_oe_trialmap(
+    config: TrialMapConfig, recording: Recording, file_writer: FileWriter
+):
     oe_messages: Messages = get_messages_from_recording(recording)
     logger.info(f"Create trialmap {len(oe_messages.text)} trial messages")
     trial_start_messages: list[TrialStartMessage] = []
@@ -291,6 +294,9 @@ def process_oe_trialmap(config: TrialMapConfig, recording: Recording, dh5file: D
             trial_end_messages[iTrial].timestamp_s * 1e9
         )
 
-    dh5io.trialmap.add_trialmap_to_file(dh5file._file, new_trialmap)
+    file_writer.write_trialmap(
+        trial_data=new_trialmap,
+        tool_version=f"oecon.trialmap (v{oecon.version.get_version_from_pyproject()})",
+    )
 
     return config

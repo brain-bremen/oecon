@@ -14,7 +14,7 @@ _SESSION_NAME = "Test_2026-03-12_16-32-08"
 
 DATA_FOLDER = _DATA_DIR / _SESSION_NAME
 GOLDEN_DH5_PATH = _DATA_DIR / f"{_SESSION_NAME}_exp1_rec1.dh5"
-GOLDEN_CONFIG_PATH = _DATA_DIR / f"{_SESSION_NAME}_exp0_rec0.config.json"
+GOLDEN_CONFIG_PATH = _DATA_DIR / f"{_SESSION_NAME}_exp1_rec1.config.json"
 
 skip_if_no_data = pytest.mark.skipif(
     not (DATA_FOLDER.exists() and GOLDEN_DH5_PATH.exists()),

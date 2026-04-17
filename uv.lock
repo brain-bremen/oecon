@@ -127,6 +127,15 @@ wheels = [
 ]
 
 [[package]]
+name = "comtypes"
+version = "1.4.16"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/c6/2a/65274c13327f637ec13af8d39f2cf579d9ebe7a0e683696b5f05236d2805/comtypes-1.4.16.tar.gz", hash = "sha256:cd66d1add01265cface4df51ba1e31cd1657e04463c281c802e737e79e1ba93c", size = 260252, upload-time = "2026-03-02T23:11:42.413Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/5f/7c/0eb685107290b6221c03c46d39214a4e42a124189691cb83ae3228257f46/comtypes-1.4.16-py3-none-any.whl", hash = "sha256:e18d85179ff12955524c5a8c3bc09cb3c0d890f1da4d7123d14244c7b78f84c8", size = 296230, upload-time = "2026-03-02T23:11:41.049Z" },
+]
+
+[[package]]
 name = "contourpy"
 version = "1.3.2"
 source = { registry = "https://pypi.org/simple" }
@@ -191,15 +200,15 @@ wheels = [
 
 [[package]]
 name = "dh5io"
-version = "0.2.1"
+version = "0.4.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "h5py" },
     { name = "numpy" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/1c/17/3f718363f0d5b7b5a99ccb2349632afaecf586280183e568aafff4b612ee/dh5io-0.2.1.tar.gz", hash = "sha256:7439ce863c60998b381d6ec6cc990102c03d060c3e7f9285cfa1db5771705d2c", size = 41326, upload-time = "2025-08-21T10:03:18.145Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/0d/fb/e358270fd43c7360e7174a3063d56fd65c6c1d7e10740cd9f7172face685/dh5io-0.4.1.tar.gz", hash = "sha256:c098fa51568c27e7f2cef7095dba143f3a776b40d2c692feda599a77140ffb5c", size = 115327, upload-time = "2026-04-17T08:10:18.513Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/47/e7/0a018686922e3c4730f3afe8b84c5de7679a0891d6162a9c4042932c2dfb/dh5io-0.2.1-py3-none-any.whl", hash = "sha256:508a482f879f7b72a9e8cd3f2147244ceab10eeacbf00ed7c24036eb5fc47597", size = 43342, upload-time = "2025-08-21T10:03:17.245Z" },
+    { url = "https://files.pythonhosted.org/packages/b7/b1/5eb07d8815c172d669365e76392a5d765a5a35548c9ecdc4935cfcaf1452/dh5io-0.4.1-py3-none-any.whl", hash = "sha256:747f17645117e2b0cd15bec3b9b5d2b5c7833c665330c4ce546abfec6832b404", size = 86879, upload-time = "2026-04-17T08:10:17.282Z" },
 ]
 
 [[package]]
@@ -489,9 +498,10 @@ wheels = [
 
 [[package]]
 name = "oecon"
-version = "0.1.5"
+version = "0.2.0"
 source = { editable = "." }
 dependencies = [
+    { name = "comtypes", marker = "sys_platform == 'win32'" },
     { name = "dh5io" },
     { name = "numpy" },
     { name = "open-ephys-python-tools" },
@@ -500,7 +510,7 @@ dependencies = [
     { name = "pyside6" },
     { name = "scipy" },
     { name = "tqdm" },
-    { name = "vstim-python-tools" },
+    { name = "vstim" },
 ]
 
 [package.dev-dependencies]
@@ -514,7 +524,8 @@ dev = [
 
 [package.metadata]
 requires-dist = [
-    { name = "dh5io" },
+    { name = "comtypes", marker = "sys_platform == 'win32'", specifier = ">=1.4.0" },
+    { name = "dh5io", specifier = ">=0.4.1" },
     { name = "numpy", specifier = ">2.0" },
     { name = "open-ephys-python-tools" },
     { name = "psutil", specifier = ">=7.2.2" },
@@ -522,7 +533,7 @@ requires-dist = [
     { name = "pyside6", specifier = ">=6.7" },
     { name = "scipy", specifier = ">=1.15.2" },
     { name = "tqdm", specifier = ">=4.67.3" },
-    { name = "vstim-python-tools", git = "https://github.com/brain-bremen/vstim-python-tools.git" },
+    { name = "vstim", specifier = ">=0.1.0" },
 ]
 
 [package.metadata.requires-dev]
@@ -1192,9 +1203,13 @@ wheels = [
 ]
 
 [[package]]
-name = "vstim-python-tools"
+name = "vstim"
 version = "0.1.0"
-source = { git = "https://github.com/brain-bremen/vstim-python-tools.git#36b9e12ed70171339dd3ac836c847f96fa6cddd6" }
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/a9/73/cda6f5f0c16ad01419cd2db3d656b63bcb7364f457f332fa4f7f23420e9f/vstim-0.1.0.tar.gz", hash = "sha256:ecaae0530edf9a76923363703ad2bad535b2b964dbd17b8018c4e2bbc15841f5", size = 518117, upload-time = "2026-04-17T14:36:23.381Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/f1/57/5f88894335314de9b621f7185a6baa6f615e0543a7b78db8847c8e74421d/vstim-0.1.0-py3-none-any.whl", hash = "sha256:1fa55d6b1dd865089d7de6120a254d8a06f4754c4582442a5e843ddb23d5de3a", size = 9231, upload-time = "2026-04-17T14:36:24.684Z" },
+]
 
 [[package]]
 name = "zmq"
