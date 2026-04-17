@@ -294,26 +294,9 @@ def process_oe_trialmap(
             trial_end_messages[iTrial].timestamp_s * 1e9
         )
 
-    # Build outcome mappings (vstim.tdr.TrialOutcome names as int32)
-    outcome_mappings: dict[str, int] = {}
-    for outcome in TrialOutcome:
-        outcome_mappings[outcome.name] = outcome.value
-
-    # Write trialmap using file writer abstraction
     file_writer.write_trialmap(
         trial_data=new_trialmap,
-        outcome_mappings=outcome_mappings,
-    )
-
-    # Add operation using file writer abstraction
-    # Outcome mappings are added as metadata to the operation (convert to np.int32 for correct HDF5 type)
-    operation_metadata = {
-        name: np.int32(value) for name, value in outcome_mappings.items()
-    }
-    file_writer.add_operation(
-        operation_name="Write trialmap",
         tool_version=f"oecon.trialmap (v{oecon.version.get_version_from_pyproject()})",
-        metadata=operation_metadata,
     )
 
     return config

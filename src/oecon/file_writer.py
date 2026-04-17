@@ -63,16 +63,12 @@ class FileWriter(ABC):
         pass
 
     @abstractmethod
-    def write_trialmap(
-        self,
-        trial_data: np.ndarray,
-        outcome_mappings: dict[str, int],
-    ) -> None:
-        """Write trial map structure with outcome name mappings.
+    def write_trialmap(self, trial_data: np.ndarray, tool_version: str) -> None:
+        """Write trial map and the accompanying operation entry.
 
         Args:
             trial_data: Structured array with trial information
-            outcome_mappings: Mapping of outcome names to integer codes (vstim format)
+            tool_version: Tool/version string recorded in the operation entry
         """
         pass
 
@@ -184,23 +180,12 @@ class DH5Writer(FileWriter):
             for name, code in event_code_names.items():
                 ev_dataset.attrs[name] = np.int32(code)
 
-    def write_trialmap(
-        self,
-        trial_data: np.ndarray,
-        outcome_mappings: dict[str, int],
-    ) -> None:
-        """Write trial map to DH5 /TRIALMAP dataset."""
+    def write_trialmap(self, trial_data: np.ndarray, tool_version: str) -> None:
+        """Write trial map to DH5 /TRIALMAP dataset and record the operation."""
         import dh5io.trialmap
 
-        # Write the trialmap structure
         dh5io.trialmap.add_trialmap_to_file(self._file, trial_data)
-
-        # Get the TRIALMAP dataset to add attributes
-        trialmap_dataset = self._file["/TRIALMAP"]
-
-        # Always write vstim.tdr.TrialOutcome names as int32 attributes
-        for name, code in outcome_mappings.items():
-            trialmap_dataset.attrs[name] = np.int32(code)
+        dh5io.trialmap.add_write_trialmap_operation(self._file, tool=tool_version)
 
     def add_operation(
         self,
