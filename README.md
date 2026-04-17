@@ -10,6 +10,11 @@ Conversion steps: LFP decimation, MUA/ESA envelope, TTL events, VStim network ev
 Requires [uv](https://docs.astral.sh/uv/getting-started/installation/).
 
 ```bash
+uv tool install oecon
+```
+or for the latest development version:
+
+```bash
 uv tool install git+https://github.com/brain-bremen/oecon.git
 ```
 
@@ -47,8 +52,7 @@ convert_open_ephys_session("/path/to/session")
 
 | Range       | Purpose |
 |---|---|
-| 1 – 1600    | Raw neural data |
-| 1601 – 2000 | Analog data |
+|    1 – 2000 | Raw neural/analog data |
 | 2001 – 3600 | LFP |
 | 3601 – 4000 | Downsampled analog |
 | 4001 – 5600 | MUA/ESA |
