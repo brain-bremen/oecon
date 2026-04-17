@@ -28,10 +28,10 @@ uv tool upgrade oecon
 
 ```bash
 oecon-gui       # converter
-oecon-inspect   # session browser
 ```
 
-Configs save session paths, output folder, and all step parameters — enough to reproduce a run.
+![](docs/oecon-gui.png)
+
 
 ## CLI
 
