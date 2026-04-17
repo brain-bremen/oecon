@@ -385,18 +385,17 @@
   },
   "trialmap_config": {
     "use_message_center_messages": true,
-    "trial_start_ttl_line": null,
-    "add_brainbox_outcome_names": false
+    "trial_start_ttl_line": null
   },
   "continuous_mua_config": {
     "highpass_cutoff_hz": 300.0,
     "filter_coecfficients_b_a": {
       "b": [
-        0.9211709934999417,
-        -3.6846839739997668,
-        5.52702596099965,
-        -3.6846839739997668,
-        0.9211709934999417
+        0.9211709934999415,
+        -3.684683973999766,
+        5.527025960999649,
+        -3.684683973999766,
+        0.9211709934999415
       ],
       "a": [
         1.0,
@@ -414,6 +413,18 @@
   },
   "spike_config": null,
   "output_format": "dh5",
+  "dh5_output_options": {
+    "validate_structure": true
+  },
+  "nwb_output_options": {
+    "experimenter": [
+      "Unknown"
+    ],
+    "institution": "Unknown",
+    "lab": "Unknown",
+    "session_description": "Open Ephys recording",
+    "electrode_metadata": null
+  },
   "n_jobs": 1,
   "config_version": 1,
   "oecon_version": "0.2.0.dev0"

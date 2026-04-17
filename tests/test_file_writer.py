@@ -143,7 +143,6 @@ class TestDH5Writer:
                 dh5_options=DH5OutputOptions(validate_structure=False),
             )
 
-            # Create test trial data
             n_trials = 5
             trial_data = np.recarray(shape=(n_trials,), dtype=TRIALMAP_DATASET_DTYPE)
             for i in range(n_trials):
@@ -152,29 +151,14 @@ class TestDH5Writer:
                 trial_data[i]["EndTime"] = np.int64((i + 1) * 1e9)
                 trial_data[i]["Outcome"] = 1
 
-            # Outcome mappings
-            outcome_mappings = {
-                "Hit": 1,
-                "Miss": 2,
-                "Early": 3,
-                "Late": 4,
-            }
+            writer.write_trialmap(trial_data=trial_data, tool_version="test_tool v1.0")
 
-            # Write trialmap
-            writer.write_trialmap(
-                trial_data=trial_data,
-                outcome_mappings=outcome_mappings,
-            )
-
-            # Verify trialmap was written
             h5file = writer._file
             assert "/TRIALMAP" in h5file
             assert len(h5file["/TRIALMAP"]) == n_trials
 
-            # Verify outcome mappings were added as attributes
-            for name, code in outcome_mappings.items():
-                assert name in h5file["/TRIALMAP"].attrs
-                assert h5file["/TRIALMAP"].attrs[name] == code
+            ops = list(h5file["/Operations"].keys())
+            assert any("Write trialmap" in k for k in ops)
 
             writer.close()
 
