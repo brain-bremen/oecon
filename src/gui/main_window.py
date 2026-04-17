@@ -1,6 +1,7 @@
 import logging
 import re
 import sys
+import threading
 from pathlib import Path
 
 from pydantic import ValidationError
@@ -19,6 +20,7 @@ from oecon.config import (
     TrialMapConfig, load_config_from_file, save_config_to_file,
 )
 from oecon import convert_open_ephys_session
+from oecon.convert_open_ephys_to_dh5 import get_output_paths
 from oecon.version import get_version_from_pyproject
 from oecon.inspect import validate_session_path
 
@@ -79,6 +81,7 @@ class _ConversionWorker(QThread):
     succeeded: Signal = Signal()
     cancelled: Signal = Signal()
     error: Signal = Signal(str)
+    conflict: Signal = Signal(list)                 # list of existing Path strings
 
     def __init__(
         self,
@@ -91,6 +94,15 @@ class _ConversionWorker(QThread):
         self._session_paths = session_paths
         self._output_folder = output_folder
         self._config = config
+        self._conflict_event = threading.Event()
+        self._conflict_action: str = "replace"
+        self._replace_all = False
+        self._skip_all = False
+
+    def resolve_conflict(self, action: str) -> None:
+        """Called from the main thread with 'replace', 'skip', or 'replace_all'."""
+        self._conflict_action = action
+        self._conflict_event.set()
 
     def run(self) -> None:
         handler = _QtLogHandler(self.log_message)
@@ -107,6 +119,29 @@ class _ConversionWorker(QThread):
             for i, session_path in enumerate(self._session_paths):
                 if self.isInterruptionRequested():
                     raise _CancelledError()
+
+                if not self._replace_all:
+                    existing = [
+                        str(p) for p in get_output_paths(
+                            session_path, self._output_folder, self._config.output_format
+                        )
+                        if p.exists()
+                    ]
+                    if existing:
+                        if self._skip_all:
+                            self.session_progress.emit(i + 1, n)
+                            continue
+                        self._conflict_event.clear()
+                        self.conflict.emit(existing)
+                        self._conflict_event.wait()
+                        if self._conflict_action in ("skip", "skip_all"):
+                            if self._conflict_action == "skip_all":
+                                self._skip_all = True
+                            self.session_progress.emit(i + 1, n)
+                            continue
+                        if self._conflict_action == "replace_all":
+                            self._replace_all = True
+
                 self.session_progress.emit(i, n)
                 convert_open_ephys_session(
                     session_path,
@@ -415,6 +450,7 @@ class MainWindow(QMainWindow):
         self._worker.succeeded.connect(self._on_finished)
         self._worker.cancelled.connect(self._on_cancelled)
         self._worker.error.connect(self._on_error)
+        self._worker.conflict.connect(self._on_conflict)
         self._worker.start()
 
     def _append_log(self, msg: str) -> None:
@@ -452,6 +488,28 @@ class MainWindow(QMainWindow):
     def _on_session_progress(self, done: int, total: int) -> None:
         self._session_bar.setValue(done)
         self._session_bar.setFormat(f"{done}/{total}")
+
+    def _on_conflict(self, existing: list) -> None:
+        names = "\n".join(f"  • {Path(p).name}" for p in existing)
+        msg = QMessageBox(self)
+        msg.setWindowTitle("Output file(s) already exist")
+        msg.setText(f"The following file(s) will be overwritten:\n\n{names}")
+        replace_btn = msg.addButton("&Replace this session", QMessageBox.ButtonRole.AcceptRole)
+        skip_btn = msg.addButton("&Skip this session", QMessageBox.ButtonRole.RejectRole)
+        replace_all_btn = msg.addButton("Replace &all", QMessageBox.ButtonRole.AcceptRole)
+        skip_all_btn = msg.addButton("Skip all e&xisting", QMessageBox.ButtonRole.RejectRole)
+        msg.exec()
+        clicked = msg.clickedButton()
+        if clicked is replace_all_btn:
+            action = "replace_all"
+        elif clicked is skip_all_btn:
+            action = "skip_all"
+        elif clicked is skip_btn:
+            action = "skip"
+        else:
+            action = "replace"
+        if self._worker:
+            self._worker.resolve_conflict(action)
 
     def _on_finished(self) -> None:
         self._set_run_mode(False)

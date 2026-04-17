@@ -151,6 +151,29 @@ def convert_open_ephys_recording_to_dh5(
     # report resulting file size in a human readable format
 
 
+def get_output_paths(
+    session_path: Path,
+    output_folder: Path | None,
+    output_format: str,
+) -> list[Path]:
+    """Return the output file paths that would be created for a session, without converting."""
+    folder = output_folder or session_path.parent
+    session = Session(str(session_path))
+    session_name = str(folder / session_path.name)
+    ext = f".{output_format}"
+    paths = []
+    for node in session.recordnodes:
+        for recording in node.recordings:
+            fname = (
+                f"{session_name}"
+                f"_exp{recording.experiment_index + 1}"
+                f"_rec{recording.recording_index + 1}"
+                f"{ext}"
+            )
+            paths.append(Path(fname))
+    return paths
+
+
 def convert_open_ephys_session(
     session_path: Path,
     output_folder: Path | None = None,
