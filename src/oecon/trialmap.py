@@ -1,30 +1,21 @@
+import logging
 import warnings
 from dataclasses import dataclass
 from enum import StrEnum
-from pydantic import BaseModel, Field
 from typing import Callable
+
 import dhspec.trialmap
 import numpy as np
-from open_ephys.analysis.recording import Recording
 from open_ephys.analysis.formats.BinaryRecording import BinaryRecording
+from open_ephys.analysis.recording import Recording
+from pydantic import BaseModel, Field
 from vstim.tdr import TrialOutcome
 
-from oecon.events import EventMetadata, Messages, event_from_eventfolder
 import oecon.version
-import logging
+from oecon.events import EventMetadata, Messages, event_from_eventfolder
 from oecon.file_writer import FileWriter
 
 logger = logging.getLogger(__name__)
-
-
-# BrainBox-compatible outcome names mapped to their vstim.tdr.TrialOutcome equivalents
-# These are written as float64 for backwards compatibility with MATLAB toolbox
-BRAINBOX_OUTCOME_MAPPING = {
-    "SUCCESS": TrialOutcome.Hit,
-    "EARLY": TrialOutcome.Early,
-    "LATE": TrialOutcome.Late,
-    "EYE_ERROR": TrialOutcome.EyeErr,
-}
 
 
 class TrialMapConfig(BaseModel):
@@ -226,7 +217,9 @@ def get_messages_from_recording(recording: Recording) -> Messages:
     return messages
 
 
-def process_oe_trialmap(config: TrialMapConfig, recording: Recording, file_writer: FileWriter):
+def process_oe_trialmap(
+    config: TrialMapConfig, recording: Recording, file_writer: FileWriter
+):
     oe_messages: Messages = get_messages_from_recording(recording)
     logger.info(f"Create trialmap {len(oe_messages.text)} trial messages")
     trial_start_messages: list[TrialStartMessage] = []
@@ -306,22 +299,17 @@ def process_oe_trialmap(config: TrialMapConfig, recording: Recording, file_write
     for outcome in TrialOutcome:
         outcome_mappings[outcome.name] = outcome.value
 
-    # Build BrainBox mappings (BrainBox-compatible names as float64)
-    brainbox_mappings: dict[str, float] = {}
-    for name, vstim_outcome in BRAINBOX_OUTCOME_MAPPING.items():
-        brainbox_mappings[name] = float(vstim_outcome.value)
-
     # Write trialmap using file writer abstraction
-    # BrainBox mappings are passed but only used if DH5OutputOptions.add_brainbox_outcome_names is True
     file_writer.write_trialmap(
         trial_data=new_trialmap,
         outcome_mappings=outcome_mappings,
-        brainbox_mappings=brainbox_mappings,
     )
 
     # Add operation using file writer abstraction
     # Outcome mappings are added as metadata to the operation (convert to np.int32 for correct HDF5 type)
-    operation_metadata = {name: np.int32(value) for name, value in outcome_mappings.items()}
+    operation_metadata = {
+        name: np.int32(value) for name, value in outcome_mappings.items()
+    }
     file_writer.add_operation(
         operation_name="Write trialmap",
         tool_version=f"oecon.trialmap (v{oecon.version.get_version_from_pyproject()})",

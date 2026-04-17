@@ -5,7 +5,7 @@ description = "Python tools to convert and preprocess OpenEphys data to the DAQ-
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
-    "dh5io",
+    "dh5io>=0.4.1",
     "open-ephys-python-tools",
     "scipy>=1.15.2",
     "numpy>2.0",

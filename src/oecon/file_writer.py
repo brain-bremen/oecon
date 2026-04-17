@@ -7,9 +7,11 @@ all processing modules.
 """
 
 from __future__ import annotations
+
 from abc import ABC, abstractmethod
 from pathlib import Path
 from typing import Any
+
 import numpy as np
 
 
@@ -65,14 +67,12 @@ class FileWriter(ABC):
         self,
         trial_data: np.ndarray,
         outcome_mappings: dict[str, int],
-        brainbox_mappings: dict[str, float] | None = None,
     ) -> None:
         """Write trial map structure with outcome name mappings.
 
         Args:
             trial_data: Structured array with trial information
             outcome_mappings: Mapping of outcome names to integer codes (vstim format)
-            brainbox_mappings: Optional BrainBox-compatible outcome mappings (DH5 only)
         """
         pass
 
@@ -188,7 +188,6 @@ class DH5Writer(FileWriter):
         self,
         trial_data: np.ndarray,
         outcome_mappings: dict[str, int],
-        brainbox_mappings: dict[str, float] | None = None,
     ) -> None:
         """Write trial map to DH5 /TRIALMAP dataset."""
         import dh5io.trialmap
@@ -202,11 +201,6 @@ class DH5Writer(FileWriter):
         # Always write vstim.tdr.TrialOutcome names as int32 attributes
         for name, code in outcome_mappings.items():
             trialmap_dataset.attrs[name] = np.int32(code)
-
-        # Optionally add BrainBox-compatible names as float64 attributes
-        if self._options.add_brainbox_outcome_names and brainbox_mappings:
-            for name, code in brainbox_mappings.items():
-                trialmap_dataset.attrs[name] = np.float64(code)
 
     def add_operation(
         self,
@@ -266,6 +260,7 @@ def create_file_writer(
     match output_format.lower():
         case "dh5":
             import dh5io.create
+
             from oecon.config import DH5OutputOptions
 
             if dh5_options is None:

@@ -9,9 +9,9 @@ from pydantic import BaseModel, Field, model_validator
 
 from oecon.decimation import DecimationConfig
 from oecon.events import EventPreprocessingConfig
+from oecon.mua import ContinuousMuaConfig
 from oecon.raw import RawConfig
 from oecon.trialmap import TrialMapConfig
-from oecon.mua import ContinuousMuaConfig
 
 VERSION = 1
 
@@ -33,12 +33,6 @@ class DH5OutputOptions(BaseModel):
     validate_structure: bool = Field(
         default=True,
         description="Validate DH5 structure after creation",
-    )
-    add_brainbox_outcome_names: bool = Field(
-        default=False,
-        title="Add BrainBox Outcome Names",
-        description="Add BrainBox-compatible outcome names (SUCCESS, EARLY, LATE, EYE_ERROR) "
-        "as float64 attributes. Required for backwards compatibility with MATLAB toolbox.",
     )
 
 
@@ -106,7 +100,9 @@ class OpenEphysConversionConfig(BaseModel):
         return self
 
 
-def save_config_to_file(config_filename: PathLike, config: OpenEphysConversionConfig) -> None:
+def save_config_to_file(
+    config_filename: PathLike, config: OpenEphysConversionConfig
+) -> None:
     logger.info(f"Saving configration to {config_filename}")
     with open(config_filename, mode="w") as config_file:
         config_file.write(config.model_dump_json(indent=2))

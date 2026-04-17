@@ -1,19 +1,20 @@
 """Unit tests for file_writer abstraction layer."""
 
-import pytest
-import numpy as np
 import tempfile
-import h5py
 from pathlib import Path
 
-from oecon.file_writer import (
-    FileWriter,
-    DH5Writer,
-    create_file_writer,
-)
-from oecon.config import DH5OutputOptions
+import h5py
+import numpy as np
+import pytest
 from dhspec.cont import create_channel_info
 from dhspec.trialmap import TRIALMAP_DATASET_DTYPE
+
+from oecon.config import DH5OutputOptions
+from oecon.file_writer import (
+    DH5Writer,
+    FileWriter,
+    create_file_writer,
+)
 
 
 class TestDH5Writer:
@@ -159,18 +160,10 @@ class TestDH5Writer:
                 "Late": 4,
             }
 
-            brainbox_mappings = {
-                "SUCCESS": 1.0,
-                "EARLY": 3.0,
-                "LATE": 4.0,
-                "EYE_ERROR": 5.0,
-            }
-
-            # Write trialmap without BrainBox names
+            # Write trialmap
             writer.write_trialmap(
                 trial_data=trial_data,
                 outcome_mappings=outcome_mappings,
-                brainbox_mappings=None,
             )
 
             # Verify trialmap was written
@@ -180,57 +173,6 @@ class TestDH5Writer:
 
             # Verify outcome mappings were added as attributes
             for name, code in outcome_mappings.items():
-                assert name in h5file["/TRIALMAP"].attrs
-                assert h5file["/TRIALMAP"].attrs[name] == code
-
-            # Verify BrainBox names are NOT present
-            for name in brainbox_mappings.keys():
-                assert name not in h5file["/TRIALMAP"].attrs
-
-            writer.close()
-
-        finally:
-            Path(tmp_path).unlink(missing_ok=True)
-
-    def test_write_trialmap_with_brainbox_names(self):
-        """Test writing trial map with BrainBox outcome names."""
-        with tempfile.NamedTemporaryFile(suffix=".dh5", delete=False) as tmp:
-            tmp_path = tmp.name
-
-        try:
-            # Create writer with BrainBox names enabled
-            writer = create_file_writer(
-                filename=tmp_path,
-                output_format="dh5",
-                board_names=["TestBoard"],
-                dh5_options=DH5OutputOptions(
-                    validate_structure=False,
-                    add_brainbox_outcome_names=True,
-                ),
-            )
-
-            # Create test trial data
-            n_trials = 3
-            trial_data = np.recarray(shape=(n_trials,), dtype=TRIALMAP_DATASET_DTYPE)
-            for i in range(n_trials):
-                trial_data[i]["TrialNo"] = i + 1
-                trial_data[i]["StartTime"] = np.int64(i * 1e9)
-                trial_data[i]["EndTime"] = np.int64((i + 1) * 1e9)
-                trial_data[i]["Outcome"] = 1
-
-            outcome_mappings = {"Hit": 1}
-            brainbox_mappings = {"SUCCESS": 1.0}
-
-            # Write trialmap with BrainBox names
-            writer.write_trialmap(
-                trial_data=trial_data,
-                outcome_mappings=outcome_mappings,
-                brainbox_mappings=brainbox_mappings,
-            )
-
-            # Verify BrainBox names ARE present
-            h5file = writer._file
-            for name, code in brainbox_mappings.items():
                 assert name in h5file["/TRIALMAP"].attrs
                 assert h5file["/TRIALMAP"].attrs[name] == code
 
@@ -367,7 +309,6 @@ class TestCreateFileWriter:
         try:
             options = DH5OutputOptions(
                 validate_structure=False,
-                add_brainbox_outcome_names=True,
             )
 
             writer = create_file_writer(
@@ -377,7 +318,6 @@ class TestCreateFileWriter:
                 dh5_options=options,
             )
 
-            assert writer._options.add_brainbox_outcome_names is True
             assert writer._options.validate_structure is False
 
             writer.close()
