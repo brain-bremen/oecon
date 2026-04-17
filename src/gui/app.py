@@ -33,7 +33,7 @@ def _apply_dark_palette(app: QApplication) -> None:
 
 def main() -> None:
     app = QApplication(sys.argv)
-    app.setApplicationName("OEcon")
+    app.setApplicationName("oecon")
     _apply_dark_palette(app)
     window = MainWindow()
     window.show()

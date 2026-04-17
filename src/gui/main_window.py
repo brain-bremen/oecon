@@ -127,7 +127,7 @@ class _ConversionWorker(QThread):
 class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
-        self.setWindowTitle(f"OEcon {get_version_from_pyproject()}")
+        self.setWindowTitle(f"oecon {get_version_from_pyproject()}")
         self.setMinimumSize(720, 680)
         self._worker: _ConversionWorker | None = None
         self._setup_ui()

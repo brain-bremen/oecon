@@ -2,7 +2,7 @@ import importlib.metadata
 
 
 def get_version_from_pyproject():
-    return importlib.metadata.version("OEcon")
+    return importlib.metadata.version("oecon")
 
 
 # Example usage:

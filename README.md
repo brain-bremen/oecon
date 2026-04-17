@@ -1,4 +1,4 @@
-# OEcon — Open Ephys Converter
+# oecon — Open Ephys Converter
 
 Converts [Open Ephys GUI](https://open-ephys.github.io/gui-docs/index.html) recordings into
 [DAQ-HDF5](https://github.com/cog-neurophys-lab/DAQ-HDF5) (DH5) format.
@@ -10,7 +10,7 @@ Conversion steps: LFP decimation, MUA/ESA envelope, TTL events, VStim network ev
 Requires [uv](https://docs.astral.sh/uv/getting-started/installation/).
 
 ```bash
-uv tool install git+https://github.com/brain-bremen/OEcon.git
+uv tool install git+https://github.com/brain-bremen/oecon.git
 ```
 
 ### Update

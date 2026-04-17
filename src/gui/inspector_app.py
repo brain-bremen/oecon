@@ -15,7 +15,7 @@ from oecon.inspect import validate_session_path
 class _InspectorWindow(QMainWindow):
     def __init__(self, session_path: Path | None = None):
         super().__init__()
-        self.setWindowTitle(f"OEcon {get_version_from_pyproject()} — Session Inspector")
+        self.setWindowTitle(f"oecon {get_version_from_pyproject()} — Session Inspector")
         self.setMinimumSize(520, 400)
 
         central = QWidget()
@@ -53,7 +53,7 @@ def main() -> None:
     session_path = Path(sys.argv[1]) if len(sys.argv) > 1 else None
 
     app = QApplication(sys.argv)
-    app.setApplicationName("OEcon Inspector")
+    app.setApplicationName("oecon inspector")
     _apply_dark_palette(app)
 
     window = _InspectorWindow(session_path)

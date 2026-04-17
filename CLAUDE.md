@@ -29,7 +29,7 @@ uv run mypy src/
 
 ## Architecture
 
-**OEcon** converts [Open Ephys GUI](https://open-ephys.github.io/gui-docs/) binary recordings into the in-house DAQ-HDF5 (DH5) format used by the cognitive neurophysiology lab.
+**oecon** converts [Open Ephys GUI](https://open-ephys.github.io/gui-docs/) binary recordings into the in-house DAQ-HDF5 (DH5) format used by the cognitive neurophysiology lab.
 
 ### Conversion pipeline
 
