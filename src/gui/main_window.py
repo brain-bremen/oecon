@@ -15,7 +15,7 @@ from PySide6.QtWidgets import (
 
 from oecon.config import (
     ContinuousMuaConfig, DecimationConfig, EventPreprocessingConfig,
-    OpenEphysConversionConfig, OutputFormat, RawConfig, SpikeConfig,
+    OpenEphysConversionConfig, OutputFormat, RawConfig,
     TrialMapConfig, load_config_from_file, save_config_to_file,
 )
 from oecon import convert_open_ephys_session
@@ -28,6 +28,7 @@ from gui.settings import (
     get_last_config_path, get_last_session_dir,
     set_last_config_path, set_last_session_dir, pick_session_dirs,
 )
+from gui.widgets import ChannelPickerWidget
 
 # (tab label, OpenEphysConversionConfig field name, model_class, enabled by default)
 _TAB_CONFIGS = [
@@ -36,8 +37,10 @@ _TAB_CONFIGS = [
     ("Trial Map", "trialmap_config",       TrialMapConfig,           True),
     ("LFP",       "decimation_config",     DecimationConfig,         True),
     ("MUA",       "continuous_mua_config", ContinuousMuaConfig,      True),
-    ("Spikes",        "spike_config",          SpikeConfig,             False),
 ]
+
+_EVENTS_EXCLUDED = {"network_events_code_name_map", "ttl_line_names"}
+_RAW_EXCLUDED = {"cont_ranges"}
 
 
 def _format_validation_error(exc: ValidationError) -> str:
@@ -132,6 +135,7 @@ class MainWindow(QMainWindow):
         remove_btn.clicked.connect(self._remove_session)
         self._inspector = SessionInspectorWidget(buttons=[add_btn, remove_btn])
         self._inspector.setTitle("Input — Open Ephys Sessions")
+        self._inspector.channels_changed.connect(self._on_channels_changed)
         root.addWidget(self._inspector)
 
         # --- Output ---
@@ -169,10 +173,32 @@ class MainWindow(QMainWindow):
         config_layout = QVBoxLayout(config_group)
         config_layout.setContentsMargins(6, 6, 6, 6)
 
+        self._channel_pickers: dict[str, ChannelPickerWidget] = {
+            "raw_config": ChannelPickerWidget(),
+            "decimation_config": ChannelPickerWidget(),
+            "continuous_mua_config": ChannelPickerWidget(),
+        }
+
         self._tabs = QTabWidget()
         self._tab_widgets: dict[str, ConfigStepWidget] = {}
         for tab_name, field_name, model_class, enabled in _TAB_CONFIGS:
-            widget = ConfigStepWidget(model_class, enabled_by_default=enabled)
+            excluded: set[str] = set()
+            overrides: dict = {}
+            if field_name == "raw_config":
+                excluded = _RAW_EXCLUDED
+                overrides = {"included_channel_names": self._channel_pickers["raw_config"]}
+            elif field_name == "event_config":
+                excluded = _EVENTS_EXCLUDED
+            elif field_name == "decimation_config":
+                overrides = {"included_channel_names": self._channel_pickers["decimation_config"]}
+            elif field_name == "continuous_mua_config":
+                overrides = {"included_channel_names": self._channel_pickers["continuous_mua_config"]}
+            widget = ConfigStepWidget(
+                model_class,
+                enabled_by_default=enabled,
+                excluded_fields=excluded,
+                field_overrides=overrides,
+            )
             self._tab_widgets[field_name] = widget
             self._tabs.addTab(widget, tab_name)
 
@@ -246,6 +272,11 @@ class MainWindow(QMainWindow):
     # ------------------------------------------------------------------
     # Path pickers
     # ------------------------------------------------------------------
+
+    def _on_channels_changed(self) -> None:
+        channels = self._inspector.all_channel_names()
+        for picker in self._channel_pickers.values():
+            picker.set_available_channels(channels)
 
     def _pick_session(self) -> None:
         paths = pick_session_dirs(self, initial=get_last_session_dir() or "")

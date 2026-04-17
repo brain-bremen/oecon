@@ -10,7 +10,7 @@ from PySide6.QtWidgets import (
     QLineEdit, QLabel, QFrame,
 )
 
-from gui.widgets import ListEditor, DictEditor
+from gui.widgets import ChannelPickerWidget, DictEditor, ListEditor
 
 
 # ---------------------------------------------------------------------------
@@ -186,7 +186,7 @@ def _get_widget_value(widget: QWidget) -> Any:
     if isinstance(widget, QLineEdit):
         text = widget.text()
         return text if text else None
-    if isinstance(widget, (_OptionalSpinBox, _OptionalDoubleSpinBox, ListEditor, DictEditor)):
+    if isinstance(widget, (_OptionalSpinBox, _OptionalDoubleSpinBox, ListEditor, DictEditor, ChannelPickerWidget)):
         return widget.get_value()
     return None
 
@@ -207,7 +207,7 @@ def _set_widget_value(widget: QWidget, value: Any) -> None:
                 break
     elif isinstance(widget, QLineEdit):
         widget.setText(str(value) if value is not None else "")
-    elif isinstance(widget, (_OptionalSpinBox, _OptionalDoubleSpinBox, ListEditor, DictEditor)):
+    elif isinstance(widget, (_OptionalSpinBox, _OptionalDoubleSpinBox, ListEditor, DictEditor, ChannelPickerWidget)):
         widget.set_value(value)
 
 
@@ -229,11 +229,15 @@ class ConfigStepWidget(QWidget):
         self,
         model_class: type[BaseModel],
         enabled_by_default: bool = True,
+        excluded_fields: set[str] | None = None,
+        field_overrides: dict[str, QWidget] | None = None,
         parent=None,
     ):
         super().__init__(parent)
         self._model_class = model_class
         self._field_widgets: dict[str, QWidget] = {}
+        _excluded = excluded_fields or set()
+        _overrides = field_overrides or {}
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(8, 8, 8, 8)
@@ -251,12 +255,21 @@ class ConfigStepWidget(QWidget):
         form = QFormLayout(self._form_widget)
         form.setFieldGrowthPolicy(QFormLayout.FieldGrowthPolicy.ExpandingFieldsGrow)
 
-        if not model_class.model_fields:
+        visible_fields = {
+            name: info
+            for name, info in model_class.model_fields.items()
+            if name not in _excluded
+        }
+
+        if not visible_fields:
             form.addRow(QLabel("No configuration options for this step."))
         else:
-            for field_name, field_info in model_class.model_fields.items():
-                default = _get_field_default(model_class, field_name)
-                widget = _make_field_widget(field_info.annotation, default)
+            for field_name, field_info in visible_fields.items():
+                if field_name in _overrides:
+                    widget = _overrides[field_name]
+                else:
+                    default = _get_field_default(model_class, field_name)
+                    widget = _make_field_widget(field_info.annotation, default)
                 label = (field_info.title or field_name.replace("_", " ").capitalize()) + ":"
                 if field_info.description:
                     widget.setToolTip(field_info.description)

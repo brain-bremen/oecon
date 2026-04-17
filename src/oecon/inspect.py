@@ -131,6 +131,8 @@ def _inspect_recording(rec_dir: str, exp_idx: int, rec_idx: int) -> RecordingInf
             dat = os.path.join(rec_dir, "continuous", cont["folder_name"], "continuous.dat")
             dur = _dat_duration(dat, num_ch, sr) if num_ch and sr else None
             channel_names = [ch["channel_name"] for ch in cont.get("channels", []) if "channel_name" in ch]
+            if not channel_names and num_ch:
+                channel_names = [f"CH{i}" for i in range(num_ch)]
             streams.append(StreamInfo(name=name, num_channels=num_ch, sample_rate=sr, duration_s=dur, channel_names=channel_names))
         seen: set[str] = set()
         for ev in info.get("events", []):
