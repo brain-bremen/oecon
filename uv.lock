@@ -510,7 +510,7 @@ dependencies = [
     { name = "pyside6" },
     { name = "scipy" },
     { name = "tqdm" },
-    { name = "vstim-python-tools" },
+    { name = "vstim" },
 ]
 
 [package.dev-dependencies]
@@ -533,7 +533,7 @@ requires-dist = [
     { name = "pyside6", specifier = ">=6.7" },
     { name = "scipy", specifier = ">=1.15.2" },
     { name = "tqdm", specifier = ">=4.67.3" },
-    { name = "vstim-python-tools", git = "https://github.com/brain-bremen/vstim-python-tools.git" },
+    { name = "vstim", specifier = ">=0.1.0" },
 ]
 
 [package.metadata.requires-dev]
@@ -1203,9 +1203,13 @@ wheels = [
 ]
 
 [[package]]
-name = "vstim-python-tools"
+name = "vstim"
 version = "0.1.0"
-source = { git = "https://github.com/brain-bremen/vstim-python-tools.git#36b9e12ed70171339dd3ac836c847f96fa6cddd6" }
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/a9/73/cda6f5f0c16ad01419cd2db3d656b63bcb7364f457f332fa4f7f23420e9f/vstim-0.1.0.tar.gz", hash = "sha256:ecaae0530edf9a76923363703ad2bad535b2b964dbd17b8018c4e2bbc15841f5", size = 518117, upload-time = "2026-04-17T14:36:23.381Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/f1/57/5f88894335314de9b621f7185a6baa6f615e0543a7b78db8847c8e74421d/vstim-0.1.0-py3-none-any.whl", hash = "sha256:1fa55d6b1dd865089d7de6120a254d8a06f4754c4582442a5e843ddb23d5de3a", size = 9231, upload-time = "2026-04-17T14:36:24.684Z" },
+]
 
 [[package]]
 name = "zmq"

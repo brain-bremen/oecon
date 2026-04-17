@@ -9,7 +9,7 @@ dependencies = [
     "open-ephys-python-tools",
     "scipy>=1.15.2",
     "numpy>2.0",
-    "vstim-python-tools",
+    "vstim>=0.1.0",
     "psutil>=7.2.2",
     "pydantic>=2.0",
     "pyside6>=6.7",
@@ -23,9 +23,6 @@ build-backend = "setuptools.build_meta"
 
 [tool.uv]
 package = true
-
-[tool.uv.sources]
-vstim-python-tools = { git = "https://github.com/brain-bremen/vstim-python-tools.git" }
 
 
 [dependency-groups]
