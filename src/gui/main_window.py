@@ -32,11 +32,11 @@ from gui.widgets import ChannelPickerWidget
 
 # (tab label, OpenEphysConversionConfig field name, model_class, enabled by default)
 _TAB_CONFIGS = [
-    ("Raw",       "raw_config",            RawConfig,                False),
-    ("Events",    "event_config",          EventPreprocessingConfig, True),
-    ("Trial Map", "trialmap_config",       TrialMapConfig,           True),
-    ("LFP",       "decimation_config",     DecimationConfig,         True),
-    ("MUA",       "continuous_mua_config", ContinuousMuaConfig,      True),
+    ("Ra&w",       "raw_config",            RawConfig,                False),
+    ("E&vents",    "event_config",          EventPreprocessingConfig, True),
+    ("&Trial Map", "trialmap_config",       TrialMapConfig,           True),
+    ("L&FP",       "decimation_config",     DecimationConfig,         True),
+    ("M&UA",       "continuous_mua_config", ContinuousMuaConfig,      True),
 ]
 
 _EVENTS_EXCLUDED = {"network_events_code_name_map", "ttl_line_names"}
@@ -68,11 +68,16 @@ class _QtLogHandler(logging.Handler):
             pass
 
 
+class _CancelledError(Exception):
+    pass
+
+
 class _ConversionWorker(QThread):
     log_message: Signal = Signal(str)
     step_progress: Signal = Signal(str, int, int)   # step_name, done, total
     session_progress: Signal = Signal(int, int)     # done, total
-    finished: Signal = Signal()
+    succeeded: Signal = Signal()
+    cancelled: Signal = Signal()
     error: Signal = Signal(str)
 
     def __init__(
@@ -92,17 +97,27 @@ class _ConversionWorker(QThread):
         root_logger = logging.getLogger()
         root_logger.addHandler(handler)
         n = len(self._session_paths)
+
+        def on_progress(name: str, done: int, total: int) -> None:
+            if self.isInterruptionRequested():
+                raise _CancelledError()
+            self.step_progress.emit(name, done, total)
+
         try:
             for i, session_path in enumerate(self._session_paths):
+                if self.isInterruptionRequested():
+                    raise _CancelledError()
                 self.session_progress.emit(i, n)
                 convert_open_ephys_session(
                     session_path,
                     output_folder=self._output_folder,
                     config=self._config,
-                    on_progress=lambda name, done, total: self.step_progress.emit(name, done, total),
+                    on_progress=on_progress,
                 )
                 self.session_progress.emit(i + 1, n)
-            self.finished.emit()
+            self.succeeded.emit()
+        except _CancelledError:
+            self.cancelled.emit()
         except Exception as exc:
             self.error.emit(str(exc))
         finally:
@@ -129,9 +144,9 @@ class MainWindow(QMainWindow):
         root.setSpacing(8)
 
         # --- Input ---
-        add_btn = QPushButton("Add…")
+        add_btn = QPushButton("&Add…")
         add_btn.clicked.connect(self._pick_session)
-        remove_btn = QPushButton("Remove")
+        remove_btn = QPushButton("Re&move")
         remove_btn.clicked.connect(self._remove_session)
         self._inspector = SessionInspectorWidget(buttons=[add_btn, remove_btn])
         self._inspector.setTitle("Input — Open Ephys Sessions")
@@ -145,7 +160,7 @@ class MainWindow(QMainWindow):
 
         self._output_edit = QLineEdit()
         self._output_edit.setPlaceholderText("Defaults to session parent folder")
-        self._output_btn = QPushButton("Browse")
+        self._output_btn = QPushButton("&Browse")
         self._output_btn.clicked.connect(self._pick_output)
         output_row = QHBoxLayout()
         output_row.addWidget(self._output_edit)
@@ -203,9 +218,9 @@ class MainWindow(QMainWindow):
             self._tabs.addTab(widget, tab_name)
 
         btn_row = QHBoxLayout()
-        load_btn = QPushButton("Load Config")
+        load_btn = QPushButton("&Load Config")
         load_btn.clicked.connect(self._load_config)
-        save_btn = QPushButton("Save Config")
+        save_btn = QPushButton("&Save Config")
         save_btn.clicked.connect(self._save_config)
         btn_row.addWidget(load_btn)
         btn_row.addWidget(save_btn)
@@ -236,19 +251,19 @@ class MainWindow(QMainWindow):
         session_row.addWidget(self._session_bar, stretch=1)
         bars_layout.addLayout(session_row)
 
-        self._step_label = QLabel("—")
+        self._step_label = QLabel("Steps")
         self._step_label.setFixedWidth(label_width)
         self._step_bar = QProgressBar()
         self._step_bar.setTextVisible(True)
         self._step_bar.setRange(0, 0)
         self._step_bar.setValue(0)
-        self._step_bar.setFormat("0/0")
+        self._step_bar.setFormat("—")
         step_row = QHBoxLayout()
         step_row.addWidget(self._step_label)
         step_row.addWidget(self._step_bar, stretch=1)
         bars_layout.addLayout(step_row)
 
-        self._run_btn = QPushButton("▶  Run")
+        self._run_btn = QPushButton("▶  &Run")
         self._run_btn.setDefault(True)
         self._run_btn.clicked.connect(self._run)
 
@@ -383,12 +398,12 @@ class MainWindow(QMainWindow):
 
         self._log_edit.clear()
         self._set_inputs_enabled(False)
+        self._set_run_mode(True)
 
         n = len(session_paths)
         self._step_bar.setRange(0, 1)
         self._step_bar.setValue(0)
-        self._step_bar.setFormat("0/1")
-        self._step_label.setText("—")
+        self._step_bar.setFormat("—")
         self._session_bar.setRange(0, n)
         self._session_bar.setValue(0)
         self._session_bar.setFormat(f"0/{n}")
@@ -397,7 +412,8 @@ class MainWindow(QMainWindow):
         self._worker.log_message.connect(self._append_log)
         self._worker.step_progress.connect(self._on_step_progress)
         self._worker.session_progress.connect(self._on_session_progress)
-        self._worker.finished.connect(self._on_finished)
+        self._worker.succeeded.connect(self._on_finished)
+        self._worker.cancelled.connect(self._on_cancelled)
         self._worker.error.connect(self._on_error)
         self._worker.start()
 
@@ -410,25 +426,48 @@ class MainWindow(QMainWindow):
         self._output_btn.setEnabled(enabled)
         self._format_combo.setEnabled(enabled)
         self._tabs.setEnabled(enabled)
-        self._run_btn.setEnabled(enabled)
+
+    def _set_run_mode(self, running: bool) -> None:
+        if running:
+            self._run_btn.setText("■  &Cancel")
+            self._run_btn.clicked.disconnect(self._run)
+            self._run_btn.clicked.connect(self._cancel)
+        else:
+            self._run_btn.setText("▶  &Run")
+            self._run_btn.setEnabled(True)
+            self._run_btn.clicked.disconnect(self._cancel)
+            self._run_btn.clicked.connect(self._run)
+
+    def _cancel(self) -> None:
+        if self._worker:
+            self._worker.requestInterruption()
+            self._run_btn.setEnabled(False)
+            self._run_btn.setText("Cancelling…")
 
     def _on_step_progress(self, step_name: str, done: int, total: int) -> None:
         self._step_bar.setRange(0, total)
         self._step_bar.setValue(done)
-        self._step_label.setText(step_name)
-        self._step_bar.setFormat(f"{done}/{total}")
+        self._step_bar.setFormat(f"{step_name}  {done}/{total}")
 
     def _on_session_progress(self, done: int, total: int) -> None:
         self._session_bar.setValue(done)
         self._session_bar.setFormat(f"{done}/{total}")
 
     def _on_finished(self) -> None:
+        self._set_run_mode(False)
         self._set_inputs_enabled(True)
-        self._step_label.setText("—")
+        self._step_bar.setFormat("—")
         self._append_log("--- Conversion complete ---")
 
-    def _on_error(self, msg: str) -> None:
+    def _on_cancelled(self) -> None:
+        self._set_run_mode(False)
         self._set_inputs_enabled(True)
-        self._step_label.setText("—")
+        self._step_bar.setFormat("—")
+        self._append_log("--- Conversion cancelled ---")
+
+    def _on_error(self, msg: str) -> None:
+        self._set_run_mode(False)
+        self._set_inputs_enabled(True)
+        self._step_bar.setFormat("—")
         self._append_log(f"ERROR: {msg}")
         QMessageBox.critical(self, "Conversion failed", msg)

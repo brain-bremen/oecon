@@ -119,13 +119,12 @@ class ChannelPickerDialog(QDialog):
         mid_col.setAlignment(Qt.AlignmentFlag.AlignVCenter)
         mid_col.addStretch()
         for label, slot in (
-            (">", self._add_selected),
-            (">>", self._add_all),
-            ("<", self._remove_selected),
-            ("<<", self._remove_all),
+            ("&Add >", self._add_selected),
+            ("Add a&ll >>", self._add_all),
+            ("&Remove <", self._remove_selected),
+            ("Re&move all <<", self._remove_all),
         ):
             btn = QPushButton(label)
-            btn.setFixedWidth(36)
             btn.clicked.connect(slot)
             mid_col.addWidget(btn)
         mid_col.addStretch()
@@ -185,7 +184,7 @@ class ChannelPickerWidget(QWidget):
 
         layout = QHBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
-        self._btn = QPushButton("All channels")
+        self._btn = QPushButton("All &channels")
         self._btn.clicked.connect(self._open_picker)
         layout.addWidget(self._btn)
         layout.addStretch()
@@ -201,9 +200,9 @@ class ChannelPickerWidget(QWidget):
         if self._is_all:
             n = len(self._available)
             suffix = f" ({n})" if n > 0 else ""
-            self._btn.setText(f"All channels{suffix}")
+            self._btn.setText(f"All &channels{suffix}")
         else:
-            self._btn.setText(f"{len(self._selected)} channel(s) selected")
+            self._btn.setText(f"{len(self._selected)} &channel(s) selected")
 
     def _open_picker(self) -> None:
         initial = None if self._is_all else self._selected

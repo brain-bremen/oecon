@@ -242,7 +242,7 @@ class ConfigStepWidget(QWidget):
         layout = QVBoxLayout(self)
         layout.setContentsMargins(8, 8, 8, 8)
 
-        self._enable_cb = QCheckBox("Enable this step")
+        self._enable_cb = QCheckBox("&Enable this step")
         self._enable_cb.setChecked(enabled_by_default)
         layout.addWidget(self._enable_cb)
 
