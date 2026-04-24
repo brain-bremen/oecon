@@ -498,7 +498,7 @@ wheels = [
 
 [[package]]
 name = "oecon"
-version = "0.2.0"
+version = "0.2.2"
 source = { editable = "." }
 dependencies = [
     { name = "comtypes", marker = "sys_platform == 'win32'" },
@@ -533,7 +533,7 @@ requires-dist = [
     { name = "pyside6", specifier = ">=6.7" },
     { name = "scipy", specifier = ">=1.15.2" },
     { name = "tqdm", specifier = ">=4.67.3" },
-    { name = "vstim", specifier = ">=0.1.0" },
+    { name = "vstim", specifier = ">=0.1.1" },
 ]
 
 [package.metadata.requires-dev]
@@ -1204,11 +1204,11 @@ wheels = [
 
 [[package]]
 name = "vstim"
-version = "0.1.0"
+version = "0.1.1"
 source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/a9/73/cda6f5f0c16ad01419cd2db3d656b63bcb7364f457f332fa4f7f23420e9f/vstim-0.1.0.tar.gz", hash = "sha256:ecaae0530edf9a76923363703ad2bad535b2b964dbd17b8018c4e2bbc15841f5", size = 518117, upload-time = "2026-04-17T14:36:23.381Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/db/b6/d34aafaf83ab6a19bc42568bc39a5f3c0791938b64851e4b4af3dffc9554/vstim-0.1.1.tar.gz", hash = "sha256:c559ef9761e4a0620e3a0cd59e734fc95e3bc7d7db2fe6e8704c9f119ea50a8d", size = 518141, upload-time = "2026-04-24T06:05:21.755Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/f1/57/5f88894335314de9b621f7185a6baa6f615e0543a7b78db8847c8e74421d/vstim-0.1.0-py3-none-any.whl", hash = "sha256:1fa55d6b1dd865089d7de6120a254d8a06f4754c4582442a5e843ddb23d5de3a", size = 9231, upload-time = "2026-04-17T14:36:24.684Z" },
+    { url = "https://files.pythonhosted.org/packages/16/95/6b77513dbbcb4a9cfbe1daafc8d4329883b631ea7e13f3c5bda82465142d/vstim-0.1.1-py3-none-any.whl", hash = "sha256:62bc574466499fe2a372e6736b19d0b865bf5735e277af9ea267607db87f71ed", size = 9249, upload-time = "2026-04-24T06:05:24.347Z" },
 ]
 
 [[package]]
