@@ -1,61 +1,53 @@
-# oecon — Open Ephys Converter
+<img src="docs/_static/ephysalis-logo.svg" alt="ephysalis" width="480">
 
-Converts [Open Ephys GUI](https://open-ephys.github.io/gui-docs/index.html) recordings into
-[DAQ-HDF5](https://github.com/cog-neurophys-lab/DAQ-HDF5) (DH5) format.
+# ephysalis — Electrophysiology Converter
 
-Conversion steps: LFP decimation, MUA/ESA envelope, TTL events, VStim network events, trial map, raw data copy.
+Like the physalis berry in its papery husk, ephysalis wraps the juicy core of a recording, the
+raw signals, in a shell of metadata: probes and channel maps, trials and stimuli, clocks, events,
+and the record of how every output was made. The shell protects the data and keeps it good for
+longer, so it can be shared and archived, and still be understood years later.
+
+Converts extracellular electrophysiology recordings (SpikeGLX/Neuropixels, Open Ephys) into one
+[NWB](https://nwb.org) or [DAQ-HDF5](https://github.com/cog-neurophys-lab/DAQ-HDF5) (DH5) file per
+session, optionally in a [BIDS](https://bids.neuroimaging.io) dataset. Along the way it extracts
+trials, LFP, MUA and CSD, and sorts spikes with
+[spikeinterface](https://spikeinterface.readthedocs.io) (Kilosort4 by default).
+
+ephysalis is the successor of [oecon](https://github.com/brain-bremen/oecon) and replaces the lab's
+MATLAB Neuropixels preprocessing scripts.
 
 ## Installation
 
 Requires [uv](https://docs.astral.sh/uv/getting-started/installation/).
 
 ```bash
-uv tool install oecon
+uv tool install git+https://github.com/brain-bremen/ephysalis.git
 ```
-or for the latest development version:
+
+## Usage
 
 ```bash
-uv tool install git+https://github.com/brain-bremen/oecon.git
+ephysalis-gui                                          # GUI: sessions, session.toml, steps
+ephysalis inspect <session> --conditions               # runs, probes, streams, paradigms
+ephysalis init <session>                               # create session.toml
+ephysalis timing <session> --work-dir D:/work/{session}
+ephysalis lfp    <session> --work-dir D:/work/{session}
+ephysalis sort   <session> --work-dir D:/work/{session} --scratch-dir <fast local disk>
+ephysalis export <session> --work-dir D:/work/{session} --output-format nwb|dh5 [--bids <root>]
 ```
 
-### Update
+## Documentation
+
+The documentation is at https://brain-bremen.github.io/ephysalis/: steps, `session.toml`, output
+layouts, filters, and plugins. It is built from `docs/`; build it locally with:
 
 ```bash
-uv tool upgrade oecon
+uv run --group docs sphinx-build docs docs/_build
 ```
 
-## GUI
+## Development
 
 ```bash
-oecon-gui       # converter
+uv sync
+uv run pytest
 ```
-
-![](docs/oecon-gui.png)
-
-
-## CLI
-
-```bash
-oecon <session_path> [<session_path> ...]
-oecon <session_path> --config config.json --output-folder /out
-oecon <session_path> --inspect
-```
-
-## Library
-
-```python
-from oecon import convert_open_ephys_session
-convert_open_ephys_session("/path/to/session")
-```
-
-## Default CONT block ranges
-
-| Range       | Purpose |
-|---|---|
-|    1 – 2000 | Raw neural/analog data |
-| 2001 – 3600 | LFP |
-| 3601 – 4000 | Downsampled analog |
-| 4001 – 5600 | MUA/ESA |
-| 6001 – 7600 | High-pass filtered raw (reserved) |
-
-Sorted spikes: SPIKE 1–1000.

@@ -1,20 +1,34 @@
 [project]
-name = "oecon"
-version = "0.2.1"
-description = "Python tools to convert and preprocess OpenEphys data to the DAQ-HDF5 (dh5) format"
+name = "ephysalis"
+version = "0.3.0.dev0"
+description = "Conversion and preprocessing of extracellular electrophysiology recordings (SpikeGLX, Open Ephys) to NWB, DH5 and BIDS (successor of oecon)"
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
     "dh5io>=0.4.1",
-    "open-ephys-python-tools",
     "scipy>=1.15.2",
     "numpy>2.0",
-    "vstim>=0.1.0",
-    "psutil>=7.2.2",
+    "vstim>=0.3.0",
     "pydantic>=2.0",
     "pyside6>=6.7",
-    "tqdm>=4.67.3",
     "comtypes>=1.4.0; sys_platform == 'win32'",
+    "h5py>=3.12",
+    "neo>=0.14.6",
+    "openpyxl>=3.1.5",
+    "pandas>=2.2",
+    "probeinterface>=0.4.2",
+    "pymatreader>=1.3.2",
+    "spikeinterface>=0.105.3",
+    "tomli-w>=1.2",
+    "pynwb>=3.0",
+    "open-ephys-python-tools>=1.0.1",
+]
+
+[project.optional-dependencies]
+# Spike sorting with Kilosort4 (needs an NVIDIA GPU; torch comes from the CUDA index below)
+sorting = [
+    "kilosort>=4.1",
+    "torch>=2.4",
 ]
 
 [build-system]
@@ -24,18 +38,54 @@ build-backend = "setuptools.build_meta"
 [tool.uv]
 package = true
 
+[tool.uv.sources]
+# 0.3.0 (old TDR versions, outcomes 10/-1) is not on PyPI yet
+vstim = { git = "https://github.com/brain-bremen/VStimPython.git", tag = "v0.3.0" }
+torch = [{ index = "pytorch-cu126", marker = "sys_platform == 'win32' or sys_platform == 'linux'" }]
+
+[[tool.uv.index]]
+name = "pytorch-cu126"
+url = "https://download.pytorch.org/whl/cu126"
+explicit = true
+
 
 [dependency-groups]
 dev = [
+    "bids-validator-deno>=3.0.2",
     "mypy>=1.16.1",
+    "nwbinspector>=0.7.2",
     "pytest>=8.3.5",
     "pytest-plt>=1.1.1",
     "scipy-stubs>=1.15.3.0",
-    "types-tqdm>=4.67.3.20260303",
+]
+docs = [
+    "furo>=2024.8.6",
+    "myst-parser>=4",
+    "sphinx>=8",
 ]
 
 
 [project.scripts]
-oecon = "cli.main:main"
-oecon-gui = "gui.app:main"
-oecon-inspect = "gui.inspector_app:main"
+ephysalis = "ephysalis.cli.main:main"
+ephyscon = "ephysalis.cli.main:main"  # old name, for existing scripts
+ephysalis-gui = "ephysalis.gui.app:main"
+ephysalis-inspect = "ephysalis.gui.inspector_app:main"
+
+# Plugin registries. Other packages can register additional input formats or
+# stimulus systems under the same entry point groups.
+[project.entry-points."ephysalis.input_formats"]
+spikeglx = "ephysalis.io.spikeglx:SpikeGLXFormat"
+openephys = "ephysalis.io.openephys:OpenEphysFormat"
+daq = "ephysalis.legacy.daq:DaqFormat"
+uff = "ephysalis.legacy.uff:UffFormat"
+mcd = "ephysalis.legacy.mcd:McdFormat"
+
+[project.entry-points."ephysalis.stimulus_systems"]
+stimstage = "ephysalis.stimulus.stimstage:StimStageSystem"
+vstim = "ephysalis.stimulus.vstim:VStimSystem"
+vstim_td01 = "ephysalis.legacy.vstim_td01:VStimTD01System"
+
+[tool.pytest.ini_options]
+markers = [
+    "realdata: tests that need a real recording session (set EPHYSALIS_TEST_SESSION)",
+]

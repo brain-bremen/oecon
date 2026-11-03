@@ -13,3 +13,13 @@ wheels/
 .mypy_cache
 .pytest_cache
 
+
+# processing outputs
+*.nwb
+
+# ephysalis processing files written next to sessions (sync edge cache, ...)
+tests/data/**/ephysalis/
+tests/data/**/ephyscon/
+
+# Sphinx output
+docs/_build/
